@@ -1,0 +1,20 @@
+# Python cache
+__pycache__/
+*.pyc
+
+# Database
+*.sqlite3
+
+# Environment
+.env
+venv/
+
+# Output files
+output/
+DRAFT GENERATOR/output/
+
+# PDFs (VERY IMPORTANT)
+*.pdf
+
+# OS
+.DS_Store
