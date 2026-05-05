@@ -1,0 +1,75 @@
+<!-- Shared AI Chat Panel — right side -->
+<aside class="w-80 bg-white border-l border-gray-100 flex flex-col flex-shrink-0">
+    <div class="h-14 flex items-center justify-between px-4 border-b border-gray-100 flex-shrink-0">
+        <div class="flex items-center gap-2">
+            <div class="w-2 h-2 rounded-full bg-green-400"></div>
+            <span class="text-sm font-semibold text-gray-800">AI Assistant</span>
+        </div>
+        <span class="text-xs text-gray-400">{{ case.case_no }}</span>
+    </div>
+    <div id="chat-messages" class="flex-1 overflow-y-auto scrollbar-thin p-4 space-y-4">
+        <div class="fade-in">
+            <div class="chat-bubble-ai rounded-2xl rounded-tl-sm p-3.5 max-w-[90%]">
+                <p class="text-sm text-gray-700 leading-relaxed">Hello! I've analyzed <strong>{{ case.case_no }}</strong>. Ask me anything about this case.</p>
+            </div>
+            <p class="text-xs text-gray-400 mt-1 ml-1">LegalAI Assistant</p>
+        </div>
+        <div id="typing-indicator" class="hidden fade-in">
+            <div class="chat-bubble-ai rounded-2xl rounded-tl-sm p-3.5 inline-block">
+                <div class="flex gap-1">
+                    <div class="w-1.5 h-1.5 rounded-full bg-gray-400 typing-dot"></div>
+                    <div class="w-1.5 h-1.5 rounded-full bg-gray-400 typing-dot"></div>
+                    <div class="w-1.5 h-1.5 rounded-full bg-gray-400 typing-dot"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="border-t border-gray-100 p-3 flex-shrink-0">
+        <div class="flex items-center gap-2 bg-bg rounded-xl border border-gray-200 px-3 py-2.5">
+            <input id="chat-input" type="text" placeholder="Ask about this case..."
+                class="flex-1 bg-transparent text-xs text-gray-700 placeholder-gray-400 border-none focus:outline-none"
+                onkeydown="if(event.key==='Enter') sendChat()">
+            <button onclick="sendChat()" class="text-gray-400 hover:text-primary transition-colors">
+                <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg>
+            </button>
+        </div>
+        <p class="text-center text-xs text-gray-300 mt-2">Powered by LegalAI · Gemini 2.5 Flash</p>
+    </div>
+</aside>
+
+<script>
+var CASE_ID = '{{ case.id }}';
+async function sendChat() {
+    var input = document.getElementById('chat-input'), msg = input.value.trim();
+    if (!msg) return;
+    var container = document.getElementById('chat-messages'), typing = document.getElementById('typing-indicator');
+    var now = new Date().toLocaleTimeString('en-US', {hour:'2-digit', minute:'2-digit'});
+    container.insertAdjacentHTML('beforeend',
+        '<div class="fade-in flex justify-end"><div>' +
+        '<div class="chat-bubble-user rounded-2xl rounded-tr-sm p-3.5 max-w-[90%] ml-auto"><p class="text-sm leading-relaxed">' + msg + '</p></div>' +
+        '<p class="text-xs text-gray-400 mt-1 text-right mr-1">You · ' + now + '</p>' +
+        '</div></div>'
+    );
+    input.value = ''; typing.classList.remove('hidden'); container.scrollTop = container.scrollHeight;
+    try {
+        var res = await fetch('/api/chat/', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({message: msg, case_id: CASE_ID})
+        });
+        var data = await res.json();
+        typing.classList.add('hidden');
+        var rt = new Date().toLocaleTimeString('en-US', {hour:'2-digit', minute:'2-digit'});
+        container.insertAdjacentHTML('beforeend',
+            '<div class="fade-in">' +
+            '<div class="chat-bubble-ai rounded-2xl rounded-tl-sm p-3.5 max-w-[90%]"><p class="text-sm text-gray-700 leading-relaxed">' + data.reply + '</p></div>' +
+            '<p class="text-xs text-gray-400 mt-1 ml-1">LegalAI · ' + rt + '</p>' +
+            '</div>'
+        );
+    } catch(e) {
+        typing.classList.add('hidden');
+        showToast('Chat error', 'error');
+    }
+    container.scrollTop = container.scrollHeight;
+}
+</script>

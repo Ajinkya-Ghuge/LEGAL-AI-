@@ -1,0 +1,53 @@
+{% extends "base.html" %}
+{% block title %}Compensation — {{ case.name }}{% endblock %}
+{% block body %}
+<div class="flex h-screen overflow-hidden bg-bg">
+    {% include "includes/case_sidebar.html" %}
+
+    <main class="flex-1 overflow-y-auto scrollbar-thin">
+        <div class="sticky top-0 bg-white border-b border-gray-100 px-6 py-3 flex items-center justify-between z-10">
+            <div><h1 class="font-semibold text-gray-800">Compensation Insights</h1><p class="text-xs text-gray-400">{{ case.name }}</p></div>
+            <a href="/compensation/" class="btn-primary text-sm px-4 py-1.5 rounded-lg flex items-center gap-1.5">
+                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z"/></svg>
+                Calculator
+            </a>
+        </div>
+        <div class="p-6 max-w-2xl space-y-4">
+            <!-- Claim Amount Hero -->
+            <div class="bg-gradient-to-br from-primary to-primary-dark rounded-2xl p-6 text-white">
+                <p class="text-xs font-semibold uppercase tracking-widest opacity-70 mb-2">Total Claim Amount</p>
+                <p class="text-4xl font-bold mb-1">{{ case.claim_amount }}</p>
+                <p class="text-xs opacity-60">{{ case.case_no }} · {{ case.type }}</p>
+            </div>
+
+            {% if case.compensation %}
+            <div class="bg-white rounded-2xl shadow-card section-card overflow-hidden">
+                <div class="px-6 py-4 border-b border-gray-50"><h2 class="text-sm font-semibold text-gray-800">Compensation Heads</h2></div>
+                <table class="w-full text-sm">
+                    <thead class="bg-gray-50"><tr><th class="text-left text-xs text-gray-500 font-semibold px-6 py-3">Head of Compensation</th><th class="text-right text-xs text-gray-500 font-semibold px-6 py-3">Amount</th></tr></thead>
+                    <tbody class="divide-y divide-gray-50">
+                        {% for item in case.compensation %}
+                        <tr class="hover:bg-gray-50 transition-colors"><td class="px-6 py-3 text-gray-700">{{ item.head }}</td><td class="px-6 py-3 text-right font-semibold text-gray-800">{{ item.amount }}</td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% endif %}
+
+            <!-- CTA to calculator -->
+            <div class="bg-purple-50 border border-purple-100 rounded-2xl p-5 flex items-center gap-4">
+                <div class="w-10 h-10 bg-purple-100 rounded-xl flex items-center justify-center flex-shrink-0">
+                    <svg class="w-5 h-5 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+                </div>
+                <div class="flex-1">
+                    <p class="text-sm font-semibold text-gray-800">Use AI Compensation Calculator</p>
+                    <p class="text-xs text-gray-500 mt-0.5">Sarla Verma formula · Pranay Sethi guidelines · Case law citations</p>
+                </div>
+                <a href="/compensation/" class="btn-primary text-xs px-4 py-2 rounded-lg flex-shrink-0">Open →</a>
+            </div>
+        </div>
+    </main>
+
+    {% include "includes/case_chat.html" %}
+</div>
+{% endblock %}

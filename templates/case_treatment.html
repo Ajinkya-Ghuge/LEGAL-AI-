@@ -1,0 +1,63 @@
+{% extends "base.html" %}
+{% block title %}Treatment Summary — {{ case.name }}{% endblock %}
+{% block body %}
+<div class="flex h-screen overflow-hidden bg-bg">
+    {% include "includes/case_sidebar.html" %}
+
+    <main class="flex-1 overflow-y-auto scrollbar-thin">
+        <div class="sticky top-0 bg-white border-b border-gray-100 px-6 py-3 flex items-center justify-between z-10">
+            <div><h1 class="font-semibold text-gray-800">Treatment Summary</h1><p class="text-xs text-gray-400">{{ case.name }}</p></div>
+            <a href="/medical-analysis/" class="btn-primary text-sm px-4 py-1.5 rounded-lg">AI Analyze</a>
+        </div>
+        <div class="p-6 max-w-2xl space-y-4">
+            <div class="bg-white rounded-2xl shadow-card section-card p-6">
+                <h2 class="text-sm font-semibold text-gray-800 mb-4">Hospital</h2>
+                <div class="flex items-center gap-3 p-3.5 bg-blue-50 rounded-xl border border-blue-100">
+                    <div class="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center flex-shrink-0">
+                        <svg class="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/></svg>
+                    </div>
+                    <p class="text-sm font-medium text-gray-800">{{ case.hospital|default:"Not recorded" }}</p>
+                </div>
+            </div>
+
+            {% if summary and summary.treatments %}
+            <div class="bg-white rounded-2xl shadow-card section-card p-6">
+                <h2 class="text-sm font-semibold text-gray-800 mb-4">AI Treatment Analysis</h2>
+                <div class="space-y-3">
+                    {% for t in summary.treatments %}
+                    <div class="p-4 bg-blue-50 rounded-xl border border-blue-100">
+                        <p class="text-xs font-bold text-blue-700 mb-1.5 uppercase tracking-wide">{{ t.type }}</p>
+                        <p class="text-sm text-gray-700">{{ t.detail }}</p>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+            {% endif %}
+
+            {% if summary and summary.medications %}
+            <div class="bg-white rounded-2xl shadow-card section-card p-6">
+                <h2 class="text-sm font-semibold text-gray-800 mb-4">Medications Prescribed</h2>
+                <div class="flex flex-wrap gap-2">
+                    {% for med in summary.medications %}
+                    <span class="text-xs bg-blue-50 text-blue-700 border border-blue-100 px-3 py-1.5 rounded-full font-medium">{{ med }}</span>
+                    {% endfor %}
+                </div>
+            </div>
+            {% endif %}
+
+            {% if not summary %}
+            <div class="bg-white rounded-2xl shadow-card section-card p-12 text-center">
+                <div class="w-14 h-14 bg-blue-50 rounded-2xl flex items-center justify-center mx-auto mb-4">
+                    <svg class="w-7 h-7 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"/></svg>
+                </div>
+                <p class="text-sm font-medium text-gray-600 mb-1">No treatment data yet</p>
+                <p class="text-xs text-gray-400 mb-4">Run AI analysis to extract treatment details from case documents</p>
+                <a href="/medical-analysis/" class="btn-primary text-xs px-5 py-2.5 rounded-xl inline-block">Run AI Analysis →</a>
+            </div>
+            {% endif %}
+        </div>
+    </main>
+
+    {% include "includes/case_chat.html" %}
+</div>
+{% endblock %}

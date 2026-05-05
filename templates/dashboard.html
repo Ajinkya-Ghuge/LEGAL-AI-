@@ -1,0 +1,191 @@
+{% extends "base.html" %}
+{% block title %}LegalAI — Dashboard{% endblock %}
+{% block extra_head %}
+<style>
+.gradient-hero { background: linear-gradient(135deg, #fdf8f6 0%, #f8f0ee 50%, #fdf6f4 100%); }
+.card-action { transition: all 0.2s ease; border: 1.5px solid #f0ebe6; }
+.card-action:hover { border-color: #C86F6F; transform: translateY(-2px); box-shadow: 0 8px 30px rgba(123,44,44,0.12); }
+.stat-card { border: 1px solid #f0ebe6; }
+.pulse-dot { animation: pulse 2s infinite; }
+@keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
+.hero-badge { background: linear-gradient(135deg, #7B2C2C15, #C86F6F15); border: 1px solid #C86F6F40; }
+.input-bar { background: white; border: 1.5px solid #e8e0d8; transition: border-color 0.2s, box-shadow 0.2s; }
+.input-bar:focus-within { border-color: #C86F6F; box-shadow: 0 0 0 4px rgba(200,111,111,0.1); }
+.recent-card { border: 1px solid #f0ebe6; transition: all 0.15s; }
+.recent-card:hover { border-color: #C86F6F50; box-shadow: 0 4px 16px rgba(123,44,44,0.08); }
+</style>
+{% endblock %}
+{% block body %}
+
+<!-- TOP NAV -->
+<nav class="fixed top-0 left-0 right-0 z-40 bg-white/90 backdrop-blur-sm border-b border-gray-100 h-14 flex items-center px-6">
+    <div class="flex items-center gap-2.5 nav-logo font-bold text-lg">
+        <div class="w-8 h-8 bg-primary rounded-lg flex items-center justify-center shadow-sm">
+            <svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 6l3 1m0 0l-3 9a5.002 5.002 0 006.001 0M6 7l3 9M6 7l6-2m6 2l3-1m-3 1l-3 9a5.002 5.002 0 006.001 0M18 7l3 9m-3-9l-6-2m0-2v2m0 16V5m0 16H9m3 0h3"/></svg>
+        </div>
+        LegalAI
+    </div>
+    <div class="ml-auto flex items-center gap-1">
+        <a href="/cases/" class="text-sm text-gray-500 hover:text-primary hover:bg-gray-50 px-3 py-1.5 rounded-lg transition-all">Cases</a>
+        <a href="/timeline/" class="text-sm text-gray-500 hover:text-primary hover:bg-gray-50 px-3 py-1.5 rounded-lg transition-all">Timeline</a>
+        <a href="/draft-editor/" class="text-sm text-gray-500 hover:text-primary hover:bg-gray-50 px-3 py-1.5 rounded-lg transition-all">Drafts</a>
+        <a href="/compensation/" class="text-sm text-gray-500 hover:text-primary hover:bg-gray-50 px-3 py-1.5 rounded-lg transition-all">Compensation</a>
+        <div class="w-8 h-8 rounded-full bg-primary flex items-center justify-center text-white text-xs font-semibold ml-2 cursor-pointer shadow-sm">A</div>
+    </div>
+</nav>
+
+<div class="pt-14 min-h-screen gradient-hero">
+
+    <!-- HERO SECTION -->
+    <div class="max-w-5xl mx-auto px-6 pt-16 pb-10 text-center">
+        <!-- Badge -->
+        <div class="inline-flex items-center gap-2 hero-badge px-4 py-1.5 rounded-full text-xs font-medium text-primary mb-6">
+            <div class="w-1.5 h-1.5 rounded-full bg-primary pulse-dot"></div>
+            AI-Powered Legal Intelligence for Indian Courts
+        </div>
+
+        <h1 class="text-5xl font-light text-gray-800 leading-tight mb-4 tracking-tight">
+            Hi! How can I help with your<br>
+            <span class="font-bold text-primary">legal casework today?</span>
+        </h1>
+        <p class="text-gray-500 text-lg leading-relaxed max-w-xl mx-auto">
+            From MACT claims to property disputes — analyze, draft, and calculate in seconds.
+        </p>
+    </div>
+
+    <!-- ACTION CARDS -->
+    <div class="max-w-5xl mx-auto px-6 mb-10">
+        <p class="text-xs font-semibold text-gray-400 tracking-widest uppercase mb-5 text-center">What would you like to do?</p>
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+
+            <!-- 1. Medical Summary -->
+            <a href="/medical-analysis/" class="card-action bg-white rounded-2xl p-6 block cursor-pointer group">
+                <div class="w-11 h-11 rounded-xl flex items-center justify-center mb-4 bg-red-50 group-hover:bg-red-100 transition-colors">
+                    <svg class="w-5 h-5 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01"/></svg>
+                </div>
+                <h3 class="font-semibold text-gray-800 text-sm mb-1 leading-snug">Create Medical Summary</h3>
+                <p class="text-xs text-gray-400 leading-relaxed">Extract structured medical insights</p>
+                <div class="mt-4 flex items-center gap-1 text-xs text-primary font-medium opacity-0 group-hover:opacity-100 transition-opacity">
+                    Start <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+                </div>
+            </a>
+
+            <!-- 2. Medical Timeline -->
+            <a href="/timeline/" class="card-action bg-white rounded-2xl p-6 block cursor-pointer group">
+                <div class="w-11 h-11 rounded-xl flex items-center justify-center mb-4 bg-blue-50 group-hover:bg-blue-100 transition-colors">
+                    <svg class="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+                </div>
+                <h3 class="font-semibold text-gray-800 text-sm mb-1 leading-snug">Generate Medical Timeline</h3>
+                <p class="text-xs text-gray-400 leading-relaxed">Auto-generate case timeline from records</p>
+                <div class="mt-4 flex items-center gap-1 text-xs text-primary font-medium opacity-0 group-hover:opacity-100 transition-opacity">
+                    Start <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+                </div>
+            </a>
+
+            <!-- 3. Legal Draft -->
+            <a href="/draft-editor/" class="card-action bg-white rounded-2xl p-6 block cursor-pointer group">
+                <div class="w-11 h-11 rounded-xl flex items-center justify-center mb-4 bg-green-50 group-hover:bg-green-100 transition-colors">
+                    <svg class="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+                </div>
+                <h3 class="font-semibold text-gray-800 text-sm mb-1 leading-snug">Generate Legal Draft</h3>
+                <p class="text-xs text-gray-400 leading-relaxed">Create court-ready legal documents</p>
+                <div class="mt-4 flex items-center gap-1 text-xs text-primary font-medium opacity-0 group-hover:opacity-100 transition-opacity">
+                    Start <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+                </div>
+            </a>
+
+            <!-- 4. Compensation -->
+            <a href="/compensation/" class="card-action bg-white rounded-2xl p-6 block cursor-pointer group">
+                <div class="w-11 h-11 rounded-xl flex items-center justify-center mb-4 bg-purple-50 group-hover:bg-purple-100 transition-colors">
+                    <svg class="w-5 h-5 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                </div>
+                <h3 class="font-semibold text-gray-800 text-sm mb-1 leading-snug">Calculate Compensation</h3>
+                <p class="text-xs text-gray-400 leading-relaxed">Estimate damages and claim value</p>
+                <div class="mt-4 flex items-center gap-1 text-xs text-primary font-medium opacity-0 group-hover:opacity-100 transition-opacity">
+                    Start <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+                </div>
+            </a>
+        </div>
+    </div>
+
+    <!-- STATS + RECENT CASES -->
+    <div class="max-w-5xl mx-auto px-6 pb-32">
+
+        <!-- Stats Row -->
+        {% if stats %}
+        <div class="grid grid-cols-4 gap-3 mb-8">
+            <div class="stat-card bg-white rounded-xl p-4 text-center">
+                <p class="text-3xl font-bold text-gray-800">{{ stats.total|default:0 }}</p>
+                <p class="text-xs text-gray-400 mt-1 font-medium">Total Cases</p>
+            </div>
+            <div class="stat-card bg-white rounded-xl p-4 text-center">
+                <p class="text-3xl font-bold text-green-600">{{ stats.by_status.active|default:0 }}</p>
+                <p class="text-xs text-gray-400 mt-1 font-medium">Active</p>
+            </div>
+            <div class="stat-card bg-white rounded-xl p-4 text-center">
+                <p class="text-3xl font-bold text-yellow-600">{{ stats.by_status.pending|default:0 }}</p>
+                <p class="text-xs text-gray-400 mt-1 font-medium">Pending</p>
+            </div>
+            <div class="stat-card bg-white rounded-xl p-4 text-center">
+                <p class="text-3xl font-bold text-gray-400">{{ stats.by_status.closed|default:0 }}</p>
+                <p class="text-xs text-gray-400 mt-1 font-medium">Closed</p>
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Recent Cases -->
+        <div class="flex items-center justify-between mb-4">
+            <h2 class="text-sm font-semibold text-gray-700">Recent Cases</h2>
+            <a href="/cases/" class="text-xs text-primary hover:underline font-medium">View all →</a>
+        </div>
+
+        {% if recent_cases %}
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+            {% for case in recent_cases %}
+            <a href="/cases/{{ case.id }}/" class="recent-card bg-white rounded-xl p-4 flex items-center gap-3 block">
+                <div class="w-10 h-10 rounded-xl bg-primary/8 flex items-center justify-center flex-shrink-0">
+                    <svg class="w-4 h-4 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"/></svg>
+                </div>
+                <div class="min-w-0 flex-1">
+                    <p class="text-sm font-semibold text-gray-800 truncate">{{ case.name }}</p>
+                    <p class="text-xs text-gray-400 mt-0.5">{{ case.type }} · {{ case.date }}</p>
+                </div>
+                {% if case.status == 'Active' %}<span class="text-xs px-2 py-0.5 rounded-full bg-green-50 text-green-700 font-medium flex-shrink-0">{{ case.status }}</span>
+                {% elif case.status == 'Pending' %}<span class="text-xs px-2 py-0.5 rounded-full bg-yellow-50 text-yellow-700 font-medium flex-shrink-0">{{ case.status }}</span>
+                {% else %}<span class="text-xs px-2 py-0.5 rounded-full bg-gray-100 text-gray-500 font-medium flex-shrink-0">{{ case.status }}</span>{% endif %}
+            </a>
+            {% endfor %}
+        </div>
+        {% else %}
+        <div class="bg-white rounded-xl border border-dashed border-gray-200 p-10 text-center">
+            <div class="w-12 h-12 bg-gray-50 rounded-xl flex items-center justify-center mx-auto mb-3"><svg class="w-6 h-6 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"/></svg></div>
+            <p class="text-sm text-gray-400 mb-3">No cases yet</p>
+            <a href="/cases/" class="btn-primary text-xs px-4 py-2 rounded-lg inline-block">Create your first case →</a>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- FIXED BOTTOM INPUT BAR -->
+<div class="fixed bottom-0 left-0 right-0 z-30 px-6 py-4" style="background: linear-gradient(to top, #F8F6F4 60%, transparent);">
+    <div class="max-w-2xl mx-auto">
+        <form action="/ask/" method="POST">
+            {% csrf_token %}
+            <div class="input-bar rounded-2xl px-5 py-3.5 flex items-center gap-3 shadow-lg">
+                <div class="w-7 h-7 bg-primary/10 rounded-lg flex items-center justify-center flex-shrink-0">
+                    <svg class="w-3.5 h-3.5 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/></svg>
+                </div>
+                <input type="text" name="question" placeholder="Ask a legal question — sections, compensation, strategy..." class="flex-1 bg-transparent text-sm text-gray-700 placeholder-gray-400 border-none focus:outline-none focus:ring-0">
+                <div class="flex items-center gap-2 flex-shrink-0">
+                    <span class="text-xs text-primary font-medium bg-primary/8 px-2.5 py-1 rounded-full">Agent beta</span>
+                    <button type="submit" class="btn-primary text-sm font-medium px-4 py-2 rounded-xl flex items-center gap-1.5">
+                        Send <svg class="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 24 24"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg>
+                    </button>
+                </div>
+            </div>
+        </form>
+        <p class="text-center text-xs text-gray-400 mt-2">Powered by LegalAI · Gemini 2.5 Flash</p>
+    </div>
+</div>
+
+{% endblock %}

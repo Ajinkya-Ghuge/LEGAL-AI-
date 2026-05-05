@@ -1,0 +1,102 @@
+{% extends "base.html" %}
+{% block title %}Cases — LegalAI{% endblock %}
+{% block body %}
+<nav class="fixed top-0 left-0 right-0 z-40 bg-white border-b border-gray-100 h-14 flex items-center px-6">
+    <a href="/dashboard/" class="flex items-center gap-2 nav-logo font-bold text-lg">
+        <div class="w-8 h-8 bg-primary rounded-lg flex items-center justify-center"><svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 6l3 1m0 0l-3 9a5.002 5.002 0 006.001 0M6 7l3 9M6 7l6-2m6 2l3-1m-3 1l-3 9a5.002 5.002 0 006.001 0M18 7l3 9m-3-9l-6-2m0-2v2m0 16V5m0 16H9m3 0h3"/></svg></div>
+        LegalAI
+    </a>
+    <div class="ml-auto flex items-center gap-4">
+        <button onclick="document.getElementById('new-case-modal').classList.remove('hidden')" class="btn-primary text-sm px-4 py-2 rounded-xl flex items-center gap-2">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>New Case
+        </button>
+        <div class="w-8 h-8 rounded-full bg-primary flex items-center justify-center text-white text-xs font-semibold">A</div>
+    </div>
+</nav>
+
+<div class="pt-14 min-h-screen px-6 py-8">
+    <div class="max-w-6xl mx-auto">
+        <div class="flex items-center justify-between mb-6">
+            <div><h1 class="text-2xl font-semibold text-gray-800">Cases</h1><p class="text-sm text-gray-500 mt-0.5">{{ cases|length }} total cases</p></div>
+        </div>
+
+        <div class="grid grid-cols-4 gap-4 mb-8">
+            <div class="bg-white rounded-2xl shadow-card p-5 section-card"><p class="text-xs text-gray-400 font-medium mb-3">Total Cases</p><p class="text-2xl font-bold text-gray-800">{{ stats.total|default:0 }}</p></div>
+            <div class="bg-white rounded-2xl shadow-card p-5 section-card"><p class="text-xs text-gray-400 font-medium mb-3">Active</p><p class="text-2xl font-bold text-green-600">{{ stats.by_status.active|default:0 }}</p></div>
+            <div class="bg-white rounded-2xl shadow-card p-5 section-card"><p class="text-xs text-gray-400 font-medium mb-3">Pending</p><p class="text-2xl font-bold text-yellow-600">{{ stats.by_status.pending|default:0 }}</p></div>
+            <div class="bg-white rounded-2xl shadow-card p-5 section-card"><p class="text-xs text-gray-400 font-medium mb-3">Closed</p><p class="text-2xl font-bold text-gray-500">{{ stats.by_status.closed|default:0 }}</p></div>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {% for case in cases %}
+            <a href="/cases/{{ case.id }}/" class="bg-white rounded-2xl shadow-card section-card p-5 block hover:shadow-card-hover transition-all">
+                <div class="flex items-start justify-between mb-3">
+                    <div class="w-10 h-10 bg-primary/10 rounded-xl flex items-center justify-center flex-shrink-0"><svg class="w-5 h-5 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"/></svg></div>
+                    {% if case.status == 'Active' %}<span class="text-xs px-2.5 py-1 rounded-full font-medium bg-green-50 text-green-700">{{ case.status }}</span>
+                    {% elif case.status == 'Pending' %}<span class="text-xs px-2.5 py-1 rounded-full font-medium bg-yellow-50 text-yellow-700">{{ case.status }}</span>
+                    {% else %}<span class="text-xs px-2.5 py-1 rounded-full font-medium bg-gray-100 text-gray-500">{{ case.status }}</span>{% endif %}
+                </div>
+                <h3 class="font-semibold text-gray-800 text-sm mb-1">{{ case.name }}</h3>
+                <p class="text-xs text-primary font-medium mb-2">{{ case.case_no }}</p>
+                <p class="text-xs text-gray-400 mb-3">{{ case.type }} · {{ case.date }}</p>
+                <div class="flex items-center justify-between pt-3 border-t border-gray-50">
+                    <span class="text-xs text-gray-500">{{ case.petitioner }}</span>
+                    <span class="text-xs font-semibold text-primary">{{ case.claim_amount }}</span>
+                </div>
+            </a>
+            {% empty %}
+            <div class="col-span-3 text-center py-16 text-gray-400 text-sm">No cases found. Create your first case.</div>
+            {% endfor %}
+            <button onclick="document.getElementById('new-case-modal').classList.remove('hidden')" class="bg-white rounded-2xl border-2 border-dashed border-gray-200 p-5 flex flex-col items-center justify-center gap-3 hover:border-accent transition-all min-h-[180px]">
+                <div class="w-10 h-10 bg-gray-100 rounded-xl flex items-center justify-center"><svg class="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg></div>
+                <p class="text-sm text-gray-400 font-medium">Add New Case</p>
+            </button>
+        </div>
+    </div>
+</div>
+
+<div id="new-case-modal" class="hidden fixed inset-0 modal-overlay z-50 flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl shadow-2xl w-full max-w-lg p-6 fade-in">
+        <div class="flex items-center justify-between mb-5">
+            <h3 class="font-semibold text-gray-800 text-base">New Case</h3>
+            <button onclick="document.getElementById('new-case-modal').classList.add('hidden')" class="text-gray-400 hover:text-gray-600"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg></button>
+        </div>
+        <form action="/cases/new/" method="POST" enctype="multipart/form-data" class="space-y-4">
+            {% csrf_token %}
+            <div class="grid grid-cols-2 gap-4">
+                <div><label class="text-xs text-gray-500 font-medium mb-1 block">Case Name</label><input type="text" name="name" placeholder="e.g. Kumar vs Insurance Co." required class="w-full text-sm border border-gray-200 rounded-xl px-3 py-2.5 focus:outline-none bg-bg"></div>
+                <div><label class="text-xs text-gray-500 font-medium mb-1 block">Case Type</label>
+                    <select name="type" class="w-full text-sm border border-gray-200 rounded-xl px-3 py-2.5 focus:outline-none bg-bg">
+                        <option value="MACT">MACT</option><option value="Property Dispute">Property Dispute</option><option value="Criminal">Criminal</option><option value="Civil">Civil</option><option value="Consumer">Consumer</option>
+                    </select>
+                </div>
+                <div><label class="text-xs text-gray-500 font-medium mb-1 block">Petitioner Name</label><input type="text" name="petitioner" placeholder="Client name" required class="w-full text-sm border border-gray-200 rounded-xl px-3 py-2.5 focus:outline-none bg-bg"></div>
+                <div><label class="text-xs text-gray-500 font-medium mb-1 block">Accident Date</label><input type="date" name="accident_date" class="w-full text-sm border border-gray-200 rounded-xl px-3 py-2.5 focus:outline-none bg-bg"></div>
+                <div><label class="text-xs text-gray-500 font-medium mb-1 block">Claim Amount</label><input type="text" name="claim_amount" placeholder="0" class="w-full text-sm border border-gray-200 rounded-xl px-3 py-2.5 focus:outline-none bg-bg"></div>
+                <div><label class="text-xs text-gray-500 font-medium mb-1 block">Status</label>
+                    <select name="status" class="w-full text-sm border border-gray-200 rounded-xl px-3 py-2.5 focus:outline-none bg-bg">
+                        <option value="Active">Active</option><option value="Pending">Pending</option><option value="Closed">Closed</option>
+                    </select>
+                </div>
+            </div>
+            <div><label class="text-xs text-gray-500 font-medium mb-1 block">Upload Case PDF (optional)</label><input type="file" name="case_pdf" accept=".pdf" class="w-full text-xs text-gray-500 border border-gray-200 rounded-xl px-3 py-2 bg-bg file:mr-3 file:py-1 file:px-3 file:rounded-lg file:border-0 file:text-xs file:bg-primary file:text-white file:cursor-pointer"></div>
+            <button type="submit" id="create-case-btn" class="w-full btn-primary py-3 rounded-xl text-sm font-semibold" onclick="showCreateLoading()">Create Case</button>
+        </form>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+function showCreateLoading() {
+    var fileInput = document.querySelector('input[name="case_pdf"]');
+    var btn = document.getElementById('create-case-btn');
+    if (fileInput && fileInput.files.length > 0) {
+        var file = fileInput.files[0];
+        var sizeMB = (file.size / 1024 / 1024).toFixed(1);
+        btn.innerHTML = '<svg class="w-4 h-4 animate-spin inline mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>Extracting PDF (' + sizeMB + ' MB)...';
+        btn.disabled = true;
+    }
+}
+</script>
+{% endblock %}

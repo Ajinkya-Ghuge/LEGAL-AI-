@@ -1,0 +1,68 @@
+{% extends "base.html" %}
+{% block title %}Expense & Bills — {{ case.name }}{% endblock %}
+{% block body %}
+<div class="flex h-screen overflow-hidden bg-bg">
+    {% include "includes/case_sidebar.html" %}
+
+    <main class="flex-1 overflow-y-auto scrollbar-thin">
+        <div class="sticky top-0 bg-white border-b border-gray-100 px-6 py-3 flex items-center justify-between z-10">
+            <div><h1 class="font-semibold text-gray-800">Expense &amp; Bills</h1><p class="text-xs text-gray-400">{{ case.name }}</p></div>
+        </div>
+        <div class="p-6 max-w-2xl space-y-4">
+            {% if case.compensation %}
+            <div class="bg-white rounded-2xl shadow-card section-card overflow-hidden">
+                <div class="px-6 py-4 border-b border-gray-50 flex items-center justify-between">
+                    <h2 class="text-sm font-semibold text-gray-800">Compensation Breakdown</h2>
+                    <span class="text-base font-bold text-primary">{{ case.claim_amount }}</span>
+                </div>
+                <table class="w-full text-sm">
+                    <thead class="bg-gray-50"><tr><th class="text-left text-xs text-gray-500 font-semibold px-6 py-3">Head</th><th class="text-right text-xs text-gray-500 font-semibold px-6 py-3">Amount</th></tr></thead>
+                    <tbody class="divide-y divide-gray-50">
+                        {% for item in case.compensation %}
+                        <tr class="hover:bg-gray-50 transition-colors"><td class="px-6 py-3 text-gray-700">{{ item.head }}</td><td class="px-6 py-3 text-right font-semibold text-primary">{{ item.amount }}</td></tr>
+                        {% endfor %}
+                    </tbody>
+                    <tfoot><tr class="border-t-2 border-gray-200 bg-primary/5"><td class="px-6 pt-4 pb-4 font-bold text-gray-800">Total Claim</td><td class="px-6 pt-4 pb-4 text-right font-bold text-primary text-base">{{ case.claim_amount }}</td></tr></tfoot>
+                </table>
+            </div>
+            {% endif %}
+
+            <div class="bg-white rounded-2xl shadow-card section-card p-6">
+                <div class="flex items-center justify-between mb-4">
+                    <h2 class="text-sm font-semibold text-gray-800">Uploaded Documents</h2>
+                    <span class="text-xs bg-gray-100 text-gray-600 px-2.5 py-1 rounded-full font-medium">{{ documents|length }} files</span>
+                </div>
+                {% if documents %}
+                <div class="space-y-2">
+                    {% for doc in documents %}
+                    <div class="flex items-center gap-3 p-3.5 bg-gray-50 rounded-xl border border-gray-100">
+                        <div class="w-9 h-9 bg-primary/10 rounded-lg flex items-center justify-center flex-shrink-0">
+                            <svg class="w-4 h-4 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+                        </div>
+                        <div class="flex-1 min-w-0">
+                            <p class="text-sm font-medium text-gray-800 truncate">{{ doc.original_name }}</p>
+                            <p class="text-xs text-gray-400">{{ doc.pages }} pages · {{ doc.processing_status }}</p>
+                        </div>
+                        {% if doc.processing_status == 'DONE' %}
+                        <span class="text-xs bg-green-50 text-green-700 px-2 py-0.5 rounded-full font-medium flex-shrink-0">Extracted</span>
+                        {% elif doc.processing_status == 'PENDING' %}
+                        <span class="text-xs bg-yellow-50 text-yellow-700 px-2 py-0.5 rounded-full font-medium flex-shrink-0">Processing</span>
+                        {% else %}
+                        <span class="text-xs bg-gray-100 text-gray-500 px-2 py-0.5 rounded-full font-medium flex-shrink-0">{{ doc.processing_status }}</span>
+                        {% endif %}
+                    </div>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <div class="text-center py-8">
+                    <p class="text-sm text-gray-400 mb-3">No documents uploaded yet</p>
+                    <a href="/cases/{{ case.id }}/" class="btn-primary text-xs px-4 py-2 rounded-lg inline-block">Upload Document →</a>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </main>
+
+    {% include "includes/case_chat.html" %}
+</div>
+{% endblock %}
