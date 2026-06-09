@@ -14,14 +14,20 @@
         </div>
     </nav>
 
-    <div class="bg-white border-b border-gray-100 px-6 py-2 flex items-center gap-2 flex-shrink-0">
-        <span class="text-xs text-gray-500 mr-2">Draft Type:</span>
-        <button onclick="selectDraftType('claim_petition')" id="dtype-claim_petition" class="text-xs px-3 py-1.5 rounded-lg border transition-colors {% if active_draft == 'claim_petition' %}btn-primary border-primary{% else %}border-gray-200 text-gray-500 hover:border-gray-300{% endif %}">Claim Petition u/s 166</button>
-        <button onclick="selectDraftType('legal_notice')" id="dtype-legal_notice" class="text-xs px-3 py-1.5 rounded-lg border transition-colors {% if active_draft == 'legal_notice' %}btn-primary border-primary{% else %}border-gray-200 text-gray-500 hover:border-gray-300{% endif %}">Legal Notice</button>
-        <button onclick="selectDraftType('affidavit')" id="dtype-affidavit" class="text-xs px-3 py-1.5 rounded-lg border transition-colors {% if active_draft == 'affidavit' %}btn-primary border-primary{% else %}border-gray-200 text-gray-500 hover:border-gray-300{% endif %}">Affidavit</button>
-        <button onclick="selectDraftType('compensation')" id="dtype-compensation" class="text-xs px-3 py-1.5 rounded-lg border transition-colors {% if active_draft == 'compensation' %}btn-primary border-primary{% else %}border-gray-200 text-gray-500 hover:border-gray-300{% endif %}">Compensation Statement</button>
-        <button onclick="selectDraftType('written_args')" id="dtype-written_args" class="text-xs px-3 py-1.5 rounded-lg border transition-colors {% if active_draft == 'written_args' %}btn-primary border-primary{% else %}border-gray-200 text-gray-500 hover:border-gray-300{% endif %}">Written Arguments</button>
-        <button onclick="generateDraft()" class="ml-auto text-xs bg-accent/10 text-primary border border-accent/30 px-3 py-1.5 rounded-lg hover:bg-accent/20 transition-colors flex items-center gap-1.5"><svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>AI Generate</button>
+    <div class="bg-white border-b border-gray-100 px-6 py-2 flex items-center gap-2 flex-shrink-0 overflow-x-auto">
+        <span class="text-xs text-gray-500 mr-2 flex-shrink-0">Draft Type:</span>
+        <button onclick="selectDraftType('claim_petition')" id="dtype-claim_petition" class="text-xs px-3 py-1.5 rounded-lg border transition-colors flex-shrink-0 {% if active_draft == 'claim_petition' %}btn-primary border-primary{% else %}border-gray-200 text-gray-500 hover:border-gray-300{% endif %}">Claim Petition</button>
+        <button onclick="selectDraftType('legal_notice')" id="dtype-legal_notice" class="text-xs px-3 py-1.5 rounded-lg border transition-colors flex-shrink-0 {% if active_draft == 'legal_notice' %}btn-primary border-primary{% else %}border-gray-200 text-gray-500 hover:border-gray-300{% endif %}">Legal Notice</button>
+        <button onclick="selectDraftType('affidavit')" id="dtype-affidavit" class="text-xs px-3 py-1.5 rounded-lg border transition-colors flex-shrink-0 {% if active_draft == 'affidavit' %}btn-primary border-primary{% else %}border-gray-200 text-gray-500 hover:border-gray-300{% endif %}">Affidavit</button>
+        <button onclick="selectDraftType('compensation')" id="dtype-compensation" class="text-xs px-3 py-1.5 rounded-lg border transition-colors flex-shrink-0 {% if active_draft == 'compensation' %}btn-primary border-primary{% else %}border-gray-200 text-gray-500 hover:border-gray-300{% endif %}">Compensation</button>
+        <button onclick="selectDraftType('written_args')" id="dtype-written_args" class="text-xs px-3 py-1.5 rounded-lg border transition-colors flex-shrink-0 {% if active_draft == 'written_args' %}btn-primary border-primary{% else %}border-gray-200 text-gray-500 hover:border-gray-300{% endif %}">Written Arguments</button>
+        <button onclick="selectDraftType('demand_letter')" id="dtype-demand_letter" class="text-xs px-3 py-1.5 rounded-lg border transition-colors flex-shrink-0 {% if active_draft == 'demand_letter' %}btn-primary border-primary{% else %}border-gray-200 text-gray-500 hover:border-gray-300 bg-orange-50 text-orange-700 border-orange-200{% endif %}">
+            <span class="flex items-center gap-1">📨 Demand Letter</span>
+        </button>
+        <button onclick="selectDraftType('settlement')" id="dtype-settlement" class="text-xs px-3 py-1.5 rounded-lg border transition-colors flex-shrink-0 {% if active_draft == 'settlement' %}btn-primary border-primary{% else %}border-gray-200 text-gray-500 hover:border-gray-300 bg-green-50 text-green-700 border-green-200{% endif %}">
+            <span class="flex items-center gap-1">🤝 Settlement</span>
+        </button>
+        <button onclick="generateDraft()" class="ml-auto text-xs bg-accent/10 text-primary border border-accent/30 px-3 py-1.5 rounded-lg hover:bg-accent/20 transition-colors flex items-center gap-1.5 flex-shrink-0"><svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>AI Generate</button>
     </div>
 
     <div class="flex flex-1 overflow-hidden">
@@ -89,11 +95,13 @@
             </div>
             <div><label class="text-xs text-gray-500 font-medium mb-1 block">Draft Type</label>
                 <select id="gen-draft-type" class="w-full text-sm border border-gray-200 rounded-xl px-3 py-2 focus:outline-none bg-bg">
-                    <option value="CLAIM_PETITION">Claim Petition u/s 166</option>
-                    <option value="LEGAL_NOTICE">Legal Notice</option>
-                    <option value="AFFIDAVIT">Affidavit</option>
-                    <option value="COMPENSATION">Compensation Statement</option>
-                    <option value="WRITTEN_ARGS">Written Arguments</option>
+                    <option value="CLAIM_PETITION">📋 Claim Petition u/s 166</option>
+                    <option value="LEGAL_NOTICE">📩 Legal Notice</option>
+                    <option value="AFFIDAVIT">📜 Affidavit</option>
+                    <option value="COMPENSATION">💰 Compensation Statement</option>
+                    <option value="WRITTEN_ARGS">⚖️ Written Arguments</option>
+                    <option value="DEMAND_LETTER">📨 Demand Letter to Insurance</option>
+                    <option value="SETTLEMENT">🤝 Settlement Letter</option>
                 </select>
             </div>
             <div><label class="text-xs text-gray-500 font-medium mb-1 block">Additional Instructions (optional)</label>

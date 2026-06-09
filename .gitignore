@@ -1,0 +1,83 @@
+# ── Python ────────────────────────────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+*.egg
+*.egg-info/
+dist/
+build/
+.eggs/
+.Python
+env/
+venv/
+.venv/
+ENV/
+
+# ── Django ────────────────────────────────────────────────────────────────────
+*.log
+local_settings.py
+db.sqlite3
+db.sqlite3-journal
+backend/db.sqlite3
+
+# ── Media & Uploads (user uploaded files) ────────────────────────────────────
+backend/media/
+output/
+*.pdf
+*.docx
+*.doc
+
+# ── Vault (large legal PDFs — add your own locally) ──────────────────────────
+vault/
+
+# ── Static files ─────────────────────────────────────────────────────────────
+staticfiles/
+static/
+
+# ── Environment & Secrets ─────────────────────────────────────────────────────
+.env
+.env.*
+*.env
+secrets.py
+
+# ── IDE & OS ──────────────────────────────────────────────────────────────────
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ── Test & Check files (temp scripts) ────────────────────────────────────────
+check_*.py
+test_*.py
+run_analysis.py
+check_case.py
+check_pymupdf.py
+
+# ── Reports & Generated output ────────────────────────────────────────────────
+report_*.txt
+final_legal_report.txt
+*.csv
+
+# ── Jupyter ────────────────────────────────────────────────────────────────────
+.ipynb_checkpoints/
+*.ipynb
+
+# ── FAISS index (generated locally) ──────────────────────────────────────────
+data/vectorstore/
+*.faiss
+*.pkl
+
+# ── Node (if Next.js frontend added later) ────────────────────────────────────
+node_modules/
+.next/
+frontend/node_modules/
+frontend/.next/
+
+# ── Misc ───────────────────────────────────────────────────────────────────────
+touch .gitignore
+project demo.pdf
+*.log

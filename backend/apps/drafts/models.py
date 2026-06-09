@@ -21,6 +21,8 @@ class Draft(models.Model):
     WRITTEN_ARGS    = "WRITTEN_ARGS"
     VAKALATNAMA     = "VAKALATNAMA"
     REPLY           = "REPLY"
+    DEMAND_LETTER   = "DEMAND_LETTER"
+    SETTLEMENT      = "SETTLEMENT"
     OTHER           = "OTHER"
 
     DRAFT_TYPE_CHOICES = [
@@ -31,6 +33,8 @@ class Draft(models.Model):
         (WRITTEN_ARGS,   "Written Arguments"),
         (VAKALATNAMA,    "Vakalatnama"),
         (REPLY,          "Reply / Written Statement"),
+        (DEMAND_LETTER,  "Demand Letter to Insurance Company"),
+        (SETTLEMENT,     "Settlement Letter"),
         (OTHER,          "Other"),
     ]
 

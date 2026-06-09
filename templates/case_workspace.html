@@ -28,9 +28,15 @@
         <div class="p-6 space-y-4 max-w-4xl">
             <div class="flex items-center justify-between mb-2">
                 <h2 class="text-lg font-bold text-gray-800">Case Overview</h2>
-                {% if case.status == 'Active' %}<span class="text-xs px-3 py-1 rounded-full bg-green-50 text-green-700 font-semibold border border-green-100">{{ case.status }}</span>
-                {% elif case.status == 'Pending' %}<span class="text-xs px-3 py-1 rounded-full bg-yellow-50 text-yellow-700 font-semibold border border-yellow-100">{{ case.status }}</span>
-                {% else %}<span class="text-xs px-3 py-1 rounded-full bg-gray-100 text-gray-500 font-semibold">{{ case.status }}</span>{% endif %}
+                <div class="flex items-center gap-2">
+                    {% if case.status == 'Active' %}<span class="text-xs px-3 py-1 rounded-full bg-green-50 text-green-700 font-semibold border border-green-100">{{ case.status }}</span>
+                    {% elif case.status == 'Pending' %}<span class="text-xs px-3 py-1 rounded-full bg-yellow-50 text-yellow-700 font-semibold border border-yellow-100">{{ case.status }}</span>
+                    {% else %}<span class="text-xs px-3 py-1 rounded-full bg-gray-100 text-gray-500 font-semibold">{{ case.status }}</span>{% endif %}
+                    <button id="analyze-btn" onclick="analyzeCase()" class="text-xs bg-primary/10 text-primary border border-primary/20 px-3 py-1.5 rounded-lg hover:bg-primary/20 transition-colors flex items-center gap-1.5 font-medium">
+                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+                        AI Analyze
+                    </button>
+                </div>
             </div>
 
             <!-- Background Info -->
@@ -156,6 +162,31 @@
 {% block extra_scripts %}
 <script>
 var CASE_ID = '{{ case.id }}';
+
+async function analyzeCase() {
+    var btn = document.getElementById('analyze-btn');
+    btn.innerHTML = '<svg class="w-3.5 h-3.5 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg> Analyzing...';
+    btn.disabled = true;
+    try {
+        var res = await fetch('/api/analyze-case/', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({case_id: CASE_ID})
+        });
+        var data = await res.json();
+        if (data.error) {
+            showToast(data.error, 'error');
+        } else {
+            showToast('Analysis complete! Refreshing page...');
+            setTimeout(function() { window.location.reload(); }, 1500);
+        }
+    } catch(e) {
+        showToast('Analysis failed: ' + e.message, 'error');
+    }
+    btn.innerHTML = '<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg> AI Analyze';
+    btn.disabled = false;
+}
+
 async function sendChatMessage() {
     var input = document.getElementById('chat-input'), msg = input.value.trim();
     if (!msg) return;

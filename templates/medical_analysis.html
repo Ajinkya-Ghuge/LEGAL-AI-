@@ -30,6 +30,23 @@
                 <p class="text-sm text-gray-500 mb-5">Upload a case PDF to generate a comprehensive MACT medical analysis using AI.</p>
                 <form action="/medical-analysis/" method="POST" enctype="multipart/form-data" class="space-y-4" id="analysis-form">
                     {% csrf_token %}
+
+                    <!-- Case selector — uses already-uploaded documents -->
+                    <div>
+                        <label class="text-xs text-gray-500 font-medium mb-1.5 block">Use documents from an existing case</label>
+                        <select name="case_id_hidden" id="case-selector" onchange="loadCaseText(this.value)" class="w-full text-sm border border-gray-200 rounded-xl px-3 py-2.5 focus:outline-none bg-bg">
+                            <option value="">-- Select a case (optional) --</option>
+                            {% for c in all_cases %}
+                            <option value="{{ c.id }}" {% if c.id|stringformat:"s" == selected_case_id|stringformat:"s" %}selected{% endif %}>
+                                {{ c.case_no }} — {{ c.name }} ({{ c.document_count }} docs)
+                            </option>
+                            {% endfor %}
+                        </select>
+                        <p id="case-load-status" class="text-xs text-primary mt-1 hidden"></p>
+                    </div>
+
+                    <div class="flex items-center gap-3"><div class="flex-1 h-px bg-gray-100"></div><span class="text-xs text-gray-400">or upload new PDF</span><div class="flex-1 h-px bg-gray-100"></div></div>
+
                     <div class="border-2 border-dashed border-gray-200 rounded-xl p-8 text-center hover:border-accent transition-colors cursor-pointer" onclick="document.getElementById('pdf-upload').click()">
                         <div class="w-12 h-12 bg-primary/10 rounded-xl flex items-center justify-center mx-auto mb-3"><svg class="w-6 h-6 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/></svg></div>
                         <p class="text-sm font-medium text-gray-700 mb-1">Drop your case PDF here</p>
@@ -37,8 +54,8 @@
                         <input type="file" id="pdf-upload" name="case_pdf" accept=".pdf" class="hidden" onchange="updateFileName(this)">
                     </div>
                     <p id="file-name" class="text-xs text-primary font-medium hidden"></p>
-                    <div class="flex items-center gap-3"><div class="flex-1 h-px bg-gray-100"></div><span class="text-xs text-gray-400">or</span><div class="flex-1 h-px bg-gray-100"></div></div>
-                    <textarea name="case_text" rows="4" placeholder="Paste case text or describe the medical facts..." class="w-full text-sm border border-gray-200 rounded-xl px-4 py-3 focus:outline-none bg-bg resize-none placeholder-gray-400"></textarea>
+                    <div class="flex items-center gap-3"><div class="flex-1 h-px bg-gray-100"></div><span class="text-xs text-gray-400">or paste text</span><div class="flex-1 h-px bg-gray-100"></div></div>
+                    <textarea name="case_text" id="case-text-area" rows="4" placeholder="Paste case text or describe the medical facts..." class="w-full text-sm border border-gray-200 rounded-xl px-4 py-3 focus:outline-none bg-bg resize-none placeholder-gray-400"></textarea>
                     <button type="submit" id="analyze-btn" class="w-full btn-primary py-3 rounded-xl text-sm font-semibold flex items-center justify-center gap-2"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/></svg>Analyze with AI</button>
                 </form>
             </div>
@@ -66,6 +83,28 @@
 <script>
 function updateFileName(input) { var el = document.getElementById('file-name'); if (input.files.length > 0) { el.textContent = '✓ ' + input.files[0].name; el.classList.remove('hidden'); } }
 function copyResult() { var pre = document.querySelector('pre'); if (pre) navigator.clipboard.writeText(pre.textContent).then(function() { showToast('Report copied to clipboard'); }); }
+
+async function loadCaseText(caseId) {
+    var statusEl = document.getElementById('case-load-status');
+    var textarea = document.getElementById('case-text-area');
+    if (!caseId) { statusEl.classList.add('hidden'); return; }
+    statusEl.textContent = 'Loading case documents...';
+    statusEl.classList.remove('hidden');
+    try {
+        var res = await fetch('/api/case-text/?case_id=' + caseId);
+        var data = await res.json();
+        if (data.text) {
+            textarea.value = data.text;
+            statusEl.textContent = '✓ Loaded ' + data.pages + ' pages from ' + data.doc_name;
+            showToast('Case documents loaded!');
+        } else {
+            statusEl.textContent = 'No documents found for this case. Upload a PDF first.';
+        }
+    } catch(e) {
+        statusEl.textContent = 'Could not load case documents.';
+    }
+}
+
 document.getElementById('analysis-form').addEventListener('submit', function() {
     var btn = document.getElementById('analyze-btn');
     btn.textContent = 'Analyzing...'; btn.disabled = true;

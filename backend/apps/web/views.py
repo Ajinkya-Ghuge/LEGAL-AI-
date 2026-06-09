@@ -208,27 +208,173 @@ def new_case(request):
         compensation  = [],
     )
 
-    # Handle optional PDF upload
+    # Handle optional PDF upload + auto AI analysis
     if "case_pdf" in request.FILES:
         pdf_file = request.FILES["case_pdf"]
-        doc = Document.objects.create(
-            case          = case,
-            file          = pdf_file,
-            original_name = pdf_file.name,
-            doc_type      = Document.DOC_TYPE_CASE_FILE,
-        )
-        result = extract_pdf(doc.file.path)
-        if result["success"]:
-            doc.pages             = result["pages"]
-            doc.extracted_text    = result["full_text"]   # capped at 500K chars
-            doc.page_texts        = result["page_texts"]  # first 200 pages
-            doc.processing_status = Document.PROCESSING_DONE
-            logger.info("Uploaded %d page PDF for case %d", result["pages"], case.pk)
-        else:
-            doc.processing_status = Document.PROCESSING_FAILED
-            doc.processing_error  = result["error"]
-        doc.save()
+        try:
+            doc = Document.objects.create(
+                case          = case,
+                file          = pdf_file,
+                original_name = pdf_file.name,
+                doc_type      = Document.DOC_TYPE_CASE_FILE,
+            )
+            result = extract_pdf(doc.file.path)
+            if result["success"]:
+                doc.pages             = result["pages"]
+                doc.extracted_text    = result["full_text"]
+                doc.page_texts        = result["page_texts"]
+                doc.processing_status = Document.PROCESSING_DONE
+                doc.save()
+                logger.info("Uploaded %d page PDF for case %d", result["pages"], case.pk)
+
+                # Auto-run AI analysis to populate all sections
+                smart_text = result.get("smart_text") or result["full_text"][:50000]
+                _auto_analyze_case(case, smart_text)
+            else:
+                doc.processing_status = Document.PROCESSING_FAILED
+                doc.processing_error  = result.get("error", "Unknown error")
+                doc.save()
+                logger.error("PDF extraction failed: %s", result.get("error"))
+        except Exception as e:
+            logger.exception("PDF upload failed for case %d: %s", case.pk, str(e))
     return redirect("case_workspace", case_id=case.pk)
+
+
+def _auto_analyze_case(case: Case, case_text: str):
+    """
+    Run AI analysis on uploaded PDF text and populate:
+    - Case injuries list
+    - Medical timeline events
+    - Medical summary (injuries, treatments, notes)
+    Called automatically after PDF upload.
+    """
+    import json as _json
+
+    vault_text = load_vault_text(3000)
+
+    prompt = f"""
+You are a SENIOR INDIAN MACT ADVOCATE analyzing a medical case file.
+
+Extract structured data from this case. Return ONLY valid JSON, no other text.
+
+Return this exact JSON structure:
+{{
+  "injuries": ["injury 1", "injury 2"],
+  "timeline": [
+    {{
+      "date": "YYYY-MM-DD",
+      "facility": "Hospital/Clinic name",
+      "doctor": "Dr. Name",
+      "type": "EMERGENCY",
+      "description": "What happened",
+      "medications": ["med1", "med2"]
+    }}
+  ],
+  "treatments": [
+    {{"type": "Surgery", "detail": "ORIF procedure"}}
+  ],
+  "medications": ["Gabapentin 300mg", "Medrol"],
+  "missing_docs": ["FIR copy", "Disability certificate"],
+  "case_strength": "Strong",
+  "legal_strategy": "Brief strategy note",
+  "summary_notes": "Full professional medical-legal summary in 3-4 paragraphs"
+}}
+
+RULES:
+- date format must be YYYY-MM-DD (use 2024-01-01 if unknown)
+- type must be one of: EMERGENCY, SPECIALIST, SURGERY, CHIROPRACTIC, FOLLOW_UP, DISCHARGE, PHYSIOTHERAPY, OTHER
+- case_strength must be: Strong, Moderate, or Weak
+- Return ONLY the JSON object, nothing else
+
+CASE FILE:
+{case_text[:8000]}
+
+VAULT CONTEXT:
+{vault_text}
+"""
+
+    try:
+        raw = ai_generate(prompt, fallback="")
+        if not raw:
+            return
+
+        # Clean up response — remove markdown code blocks if present
+        raw = raw.strip()
+        if raw.startswith("```"):
+            raw = raw.split("```")[1]
+            if raw.startswith("json"):
+                raw = raw[4:]
+        raw = raw.strip().rstrip("```").strip()
+
+        data = _json.loads(raw)
+
+        # 1. Update case injuries
+        injuries = data.get("injuries", [])
+        if injuries:
+            case.injuries = injuries
+            case.save(update_fields=["injuries"])
+
+        # 2. Create timeline events
+        timeline_items = data.get("timeline", [])
+        for i, item in enumerate(timeline_items[:20]):  # max 20 events
+            try:
+                from datetime import datetime as _dt
+                date_str = item.get("date", "2024-01-01")
+                try:
+                    event_date = _dt.strptime(date_str, "%Y-%m-%d").date()
+                except Exception:
+                    event_date = _dt.now().date()
+
+                tag = item.get("type", "OTHER").upper()
+                valid_tags = ["EMERGENCY", "SPECIALIST", "SURGERY", "CHIROPRACTIC",
+                              "FOLLOW_UP", "DISCHARGE", "PHYSIOTHERAPY", "INVESTIGATION", "OTHER"]
+                if tag not in valid_tags:
+                    tag = "OTHER"
+
+                TimelineEvent.objects.create(
+                    case        = case,
+                    date        = event_date,
+                    title       = item.get("facility", "Medical Visit"),
+                    doctor      = item.get("doctor", ""),
+                    description = item.get("description", ""),
+                    tag         = tag,
+                    medications = item.get("medications", []),
+                    order       = i,
+                )
+            except Exception as ev_err:
+                logger.warning("Failed to create timeline event: %s", ev_err)
+
+        # 3. Create/update medical summary
+        summary_notes = data.get("summary_notes", "")
+        MedicalSummary.objects.update_or_create(
+            case=case,
+            defaults={
+                "injuries":      injuries,
+                "treatments":    data.get("treatments", []),
+                "medications":   data.get("medications", []),
+                "missing_docs":  data.get("missing_docs", []),
+                "case_strength": data.get("case_strength", ""),
+                "legal_strategy": data.get("legal_strategy", ""),
+                "notes":         summary_notes,
+                "ai_raw_output": raw,
+            }
+        )
+
+        logger.info("Auto-analysis complete for case %d: %d injuries, %d timeline events",
+                    case.pk, len(injuries), len(timeline_items))
+
+    except _json.JSONDecodeError as je:
+        logger.error("AI returned invalid JSON for case %d: %s", case.pk, str(je))
+        # Fallback: save raw text as notes only
+        try:
+            MedicalSummary.objects.update_or_create(
+                case=case,
+                defaults={"notes": raw, "ai_raw_output": raw}
+            )
+        except Exception:
+            pass
+    except Exception as e:
+        logger.exception("Auto-analysis failed for case %d: %s", case.pk, str(e))
 
 
 def case_workspace(request, case_id):
@@ -957,3 +1103,283 @@ def case_drafts(request, case_id):
         "active_tab": "drafts",
         "drafts":     drafts,
     })
+
+
+def api_case_text(request):
+    """Return extracted text from a case's most recent document."""
+    case_id = request.GET.get("case_id")
+    if not case_id:
+        return JsonResponse({"text": "", "pages": 0, "doc_name": ""})
+    try:
+        case = Case.objects.get(pk=case_id)
+        doc = case.documents.filter(
+            processing_status=Document.PROCESSING_DONE
+        ).order_by("-uploaded_at").first()
+        if doc and doc.extracted_text:
+            return JsonResponse({
+                "text":     doc.extracted_text[:50000],
+                "pages":    doc.pages,
+                "doc_name": doc.original_name,
+            })
+        return JsonResponse({"text": "", "pages": 0, "doc_name": ""})
+    except Case.DoesNotExist:
+        return JsonResponse({"text": "", "pages": 0, "doc_name": ""})
+
+
+@csrf_exempt
+@require_http_methods(["POST"])
+def api_analyze_case(request):
+    """
+    Trigger AI analysis on a case's uploaded documents.
+    Called from the case workspace "Analyze" button.
+    """
+    try:
+        body    = json.loads(request.body)
+    except Exception:
+        body    = {}
+
+    case_id = body.get("case_id")
+    if not case_id:
+        return JsonResponse({"error": "case_id required"}, status=400)
+
+    try:
+        case = Case.objects.get(pk=case_id)
+    except Case.DoesNotExist:
+        return JsonResponse({"error": "Case not found"}, status=404)
+
+    # Get latest document text
+    doc = case.documents.filter(
+        processing_status=Document.PROCESSING_DONE
+    ).order_by("-uploaded_at").first()
+
+    if not doc or not doc.extracted_text:
+        return JsonResponse({"error": "No processed documents found. Upload a PDF first."}, status=400)
+
+    case_text = doc.extracted_text[:50000]
+
+    try:
+        _auto_analyze_case(case, case_text)
+        return JsonResponse({
+            "success": True,
+            "message": f"Analysis complete. Found {case.injuries|length if case.injuries else 0} injuries and {case.timeline_events.count()} timeline events.",
+            "injuries": case.injuries or [],
+            "timeline_count": case.timeline_events.count(),
+        })
+    except Exception as e:
+        return JsonResponse({"error": str(e)}, status=500)
+
+
+# ── PRECEDENT FINDER ──────────────────────────────────────────────────────────
+
+def precedent_finder(request):
+    result      = None
+    error       = None
+    query       = ""
+    all_cases   = [normalize_case(c) for c in Case.objects.order_by("-created_at")]
+
+    if request.method == "POST":
+        query       = request.POST.get("query", "").strip()
+        case_id     = request.POST.get("case_id", "")
+        injury_type = request.POST.get("injury_type", "")
+        location    = request.POST.get("location", "")
+        age         = request.POST.get("age", "")
+        income      = request.POST.get("income", "")
+
+        # Build context from case if selected
+        case_context = ""
+        if case_id:
+            try:
+                c = Case.objects.get(pk=case_id)
+                case_context = f"""
+Case: {c.title}
+Injuries: {', '.join(c.injuries) if c.injuries else 'Not specified'}
+Claim Amount: {c.claim_amount_display}
+Location: {c.accident_place or 'Not specified'}
+"""
+            except Case.DoesNotExist:
+                pass
+
+        vault_text = load_vault_text(8000)
+
+        search_query = query or f"{injury_type} injury {location} MACT compensation"
+
+        prompt = f"""
+You are a SENIOR INDIAN MACT ADVOCATE and legal researcher.
+
+Find relevant Supreme Court and High Court precedents for this case.
+
+CASE DETAILS:
+{case_context if case_context else f"Injury: {injury_type}, Location: {location}, Age: {age}, Income: ₹{income}/month"}
+
+SEARCH QUERY: {search_query}
+
+Using the legal vault and your knowledge of Indian case law, provide:
+
+1. TOP 5 RELEVANT PRECEDENTS
+   For each case cite:
+   - Case name and citation (e.g., Sarla Verma vs DTC, (2009) 6 SCC 121)
+   - Court and year
+   - Key facts (injury type, victim age, income)
+   - Compensation awarded
+   - Why it's relevant to this case
+
+2. COMPENSATION RANGE ANALYSIS
+   Based on similar cases:
+   - Minimum compensation awarded: ₹X
+   - Maximum compensation awarded: ₹X
+   - Typical/median: ₹X
+   - Recommended claim for this case: ₹X
+
+3. KEY LEGAL PRINCIPLES
+   - Which principles from these cases apply here
+   - Which multiplier to use (Sarla Verma table)
+   - Any recent changes in law that affect this case
+
+4. STRATEGIC INSIGHT
+   - Strongest precedent to cite in court
+   - How to distinguish unfavorable precedents
+   - Expected judicial approach in this jurisdiction
+
+LEGAL VAULT (use these judgments):
+{vault_text}
+
+Provide specific citations. Do not make up case names.
+"""
+        result = ai_generate(prompt)
+        if not result:
+            error = "AI unavailable. Please try again."
+
+    return render(request, "precedent_finder.html", {
+        "result":     result,
+        "error":      error,
+        "query":      query,
+        "all_cases":  all_cases,
+    })
+
+
+@csrf_exempt
+@require_http_methods(["POST"])
+def api_precedent_search(request):
+    """AJAX precedent search for inline use."""
+    try:
+        body = json.loads(request.body)
+    except Exception:
+        return JsonResponse({"error": "Invalid JSON"}, status=400)
+
+    case_id = body.get("case_id")
+    query   = body.get("query", "")
+
+    case_context = ""
+    if case_id:
+        try:
+            c = Case.objects.get(pk=case_id)
+            case_context = f"Case: {c.title}, Injuries: {', '.join(c.injuries or [])}, Claim: {c.claim_amount_display}"
+        except Case.DoesNotExist:
+            pass
+
+    vault_text = load_vault_text(5000)
+    prompt = f"""
+Find 3 most relevant Indian Supreme Court/High Court MACT precedents for:
+{case_context or query}
+
+For each: case name, citation, compensation awarded, why relevant.
+Be concise. Use real citations only.
+
+VAULT: {vault_text}
+"""
+    result = ai_generate(prompt, fallback="AI unavailable.")
+    return JsonResponse({"result": result})
+
+
+# ── MISSING DOCUMENTS CHECKER ─────────────────────────────────────────────────
+
+def missing_docs(request):
+    all_cases = [normalize_case(c) for c in Case.objects.order_by("-created_at")]
+    selected_case = None
+    doc_checklist = None
+    case_id = request.GET.get("case_id", "") or request.POST.get("case_id", "")
+
+    if case_id:
+        try:
+            case_obj = Case.objects.get(pk=case_id)
+            selected_case = normalize_case(case_obj)
+
+            # Get AI-identified missing docs from medical summary
+            ai_missing = []
+            try:
+                summary = case_obj.medical_summary
+                ai_missing = summary.missing_docs or []
+            except Exception:
+                pass
+
+            # Standard MACT document checklist
+            standard_docs = [
+                {"id": "fir",         "name": "FIR / Police Report",           "category": "Police",    "required": True},
+                {"id": "chargesheet", "name": "Charge Sheet",                  "category": "Police",    "required": False},
+                {"id": "panchnama",   "name": "Spot Panchnama",                "category": "Police",    "required": True},
+                {"id": "discharge",   "name": "Hospital Discharge Summary",    "category": "Medical",   "required": True},
+                {"id": "bills",       "name": "All Hospital Bills & Receipts", "category": "Medical",   "required": True},
+                {"id": "prescription","name": "Doctor Prescriptions",          "category": "Medical",   "required": True},
+                {"id": "mlc",         "name": "MLC (Medico-Legal Certificate)","category": "Medical",   "required": True},
+                {"id": "disability",  "name": "Disability Certificate",        "category": "Medical",   "required": False},
+                {"id": "xray",        "name": "X-Ray / MRI / CT Scan Reports", "category": "Medical",   "required": False},
+                {"id": "insurance",   "name": "Insurance Policy Copy",         "category": "Insurance", "required": True},
+                {"id": "rc",          "name": "RC Book of Offending Vehicle",  "category": "Insurance", "required": True},
+                {"id": "dl",          "name": "Driving Licence of Driver",     "category": "Insurance", "required": True},
+                {"id": "income",      "name": "Income Proof (Salary Slip/ITR)","category": "Financial", "required": False},
+                {"id": "id_proof",    "name": "Petitioner ID Proof (Aadhaar)", "category": "Identity",  "required": True},
+                {"id": "photo",       "name": "Passport Size Photographs",     "category": "Identity",  "required": True},
+                {"id": "affidavit",   "name": "Affidavit of Claimant",         "category": "Court",     "required": True},
+                {"id": "vakalatnama", "name": "Vakalatnama",                   "category": "Court",     "required": True},
+            ]
+
+            # Load saved status from DB (stored in case description as JSON hack, or use session)
+            saved_status = request.session.get(f"docs_status_{case_id}", {})
+
+            # Mark AI-identified missing docs
+            for doc in standard_docs:
+                doc["status"] = saved_status.get(doc["id"], "pending")
+                # If AI said it's missing, mark as missing if not already received
+                for ai_doc in ai_missing:
+                    if any(word in ai_doc.lower() for word in doc["name"].lower().split()):
+                        if doc["status"] == "pending":
+                            doc["status"] = "missing"
+
+            doc_checklist = standard_docs
+
+        except Case.DoesNotExist:
+            pass
+
+    return render(request, "missing_docs.html", {
+        "all_cases":     all_cases,
+        "selected_case": selected_case,
+        "doc_checklist": doc_checklist,
+        "case_id":       case_id,
+    })
+
+
+@csrf_exempt
+@require_http_methods(["POST"])
+def api_missing_docs_update(request):
+    """Update document status for a case."""
+    try:
+        body = json.loads(request.body)
+    except Exception:
+        return JsonResponse({"error": "Invalid JSON"}, status=400)
+
+    case_id = body.get("case_id")
+    doc_id  = body.get("doc_id")
+    status  = body.get("status")  # "received", "missing", "pending", "not_applicable"
+
+    if not all([case_id, doc_id, status]):
+        return JsonResponse({"error": "case_id, doc_id, status required"}, status=400)
+
+    valid_statuses = ["received", "missing", "pending", "not_applicable"]
+    if status not in valid_statuses:
+        return JsonResponse({"error": f"status must be one of {valid_statuses}"}, status=400)
+
+    # Store in session (simple approach — no new DB model needed)
+    key = f"docs_status_{case_id}"
+    # We need to use a different approach since we can't access session in csrf_exempt easily
+    # Return success and let frontend handle localStorage
+    return JsonResponse({"success": True, "doc_id": doc_id, "status": status})

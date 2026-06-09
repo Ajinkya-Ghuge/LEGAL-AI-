@@ -131,6 +131,56 @@ Include:
 
 Use Indian Supreme Court citation format.
 """,
+
+    Draft.DEMAND_LETTER: """
+Generate a PROFESSIONAL DEMAND LETTER to the Insurance Company for MACT compensation.
+
+Format:
+1. Advocate's letterhead (Name, Address, Contact)
+2. Date
+3. "BY REGISTERED POST WITH ACKNOWLEDGEMENT DUE"
+4. To: Branch Manager, [Insurance Company Name], [Branch Address]
+5. Subject: DEMAND FOR COMPENSATION — Motor Accident dated [date] — Policy No. [number]
+6. Body paragraphs:
+   - Para 1: Identity of client and accident facts
+   - Para 2: Injuries sustained and medical treatment
+   - Para 3: Financial losses (medical bills, income loss)
+   - Para 4: Liability of insurance company under MV Act
+   - Para 5: Specific demand amount with breakdown
+   - Para 6: 15-day deadline with legal consequences
+7. Closing: "Without prejudice to all other legal rights"
+8. Advocate signature
+
+Tone: Firm, professional, legally precise. Not aggressive.
+Include exact rupee amounts. Reference specific MV Act sections.
+""",
+
+    Draft.SETTLEMENT: """
+Generate a SETTLEMENT LETTER / COMPROMISE PROPOSAL for a MACT case.
+
+This letter is sent when the parties want to settle out of court.
+
+Include:
+1. Letter heading (Advocate's office)
+2. Date and reference
+3. To: Insurance Company / Opposite Party
+4. Subject: Proposal for Amicable Settlement
+5. Body:
+   - Brief facts of the accident
+   - Summary of injuries and treatment
+   - Original claim amount
+   - Settlement amount being proposed (typically 70-80% of claim)
+   - Terms of settlement:
+     * Payment timeline (lump sum or installments)
+     * Full and final settlement clause
+     * No further claims clause
+     * Withdrawal of MACT petition upon payment
+6. Acceptance deadline (15 days)
+7. Consequences if not accepted (full trial)
+8. Advocate signature
+
+Tone: Conciliatory but firm. Professional.
+""",
 }
 
 

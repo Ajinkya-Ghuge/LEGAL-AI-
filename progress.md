@@ -245,3 +245,37 @@ legal ai/
 ├── output/                     # Generated files
 └── progress.md                 # This file
 ```
+
+
+---
+
+## ✅ Phase 4: New Features
+
+| Feature | URL | Status |
+|---------|-----|--------|
+| Precedent Finder | /precedent-finder/ | ✅ Done |
+| Missing Documents Checker | /missing-docs/ | ✅ Done |
+| Demand Letter (draft type) | /draft-editor/ → AI Generate | ✅ Done |
+| Settlement Letter (draft type) | /draft-editor/ → AI Generate | ✅ Done |
+
+### Precedent Finder (`/precedent-finder/`)
+- Search by case, injury type, location, age, income
+- Returns top 5 relevant SC/HC judgments with citations
+- Compensation range analysis (min/max/recommended)
+- Legal strategy recommendations
+- Quick reference landmark cases panel (Sarla Verma, Pranay Sethi, Raj Kumar, Reshma Kumari)
+
+### Missing Documents Checker (`/missing-docs/`)
+- 17-document MACT checklist across 6 categories
+- Categories: Police, Medical, Insurance, Financial, Identity, Court
+- Per-document status: Received ✓ / Missing ✗ / Pending ⏳ / N/A
+- Progress bar showing filing readiness %
+- AI-identified missing docs auto-marked from medical summary
+- Status saved in localStorage (persists across sessions)
+- "Ready to file" banner when all required docs received
+- "Mark all received" per category button
+
+### Draft Generator — 2 New Types
+- 📨 Demand Letter to Insurance Company
+- 🤝 Settlement Letter / Compromise Proposal
+- Both in tab bar + AI Generate modal dropdown
