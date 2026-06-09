@@ -28,6 +28,12 @@ output/
 *.docx
 *.doc
 
+# Allow root-level screenshots for README
+!dashboard.png
+!cases.png
+!timeline.png
+!draft.png
+
 # ── Vault (large legal PDFs — add your own locally) ──────────────────────────
 vault/
 

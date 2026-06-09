@@ -39,32 +39,28 @@
 ### 🏠 Dashboard — AI-Powered Case Intelligence
 > *Central hub with action cards, live stats, AI Q&A bar, and recent cases*
 
-<!-- Add screenshot: screenshots/dashboard.png -->
-![Dashboard](https://placehold.co/900x480/F8F6F4/7B2C2C?text=📊+Dashboard+—+LegalAI)
+![Dashboard](dashboard.png)
 
 <br/>
 
-### ⚖️ Case Workspace — 3-Panel Layout
-> *Left sidebar navigation · Center case overview with collapsible cards · Right AI chat*
+### 📁 Cases — Case Management Grid
+> *All cases in one view with status badges, filters, and quick stats*
 
-<!-- Add screenshot: screenshots/case_workspace.png -->
-![Case Workspace](https://placehold.co/900x480/F8F6F4/7B2C2C?text=⚖️+Case+Workspace+—+LegalAI)
+![Cases](cases.png)
 
 <br/>
 
 ### 🏥 Medical Timeline — Auto-Generated from PDF
 > *Hospital visits extracted and organised with tags, doctors, medications*
 
-<!-- Add screenshot: screenshots/timeline.png -->
-![Medical Timeline](https://placehold.co/900x480/F8F6F4/7B2C2C?text=🏥+Medical+Timeline+—+LegalAI)
+![Medical Timeline](timeline.png)
 
 <br/>
 
 ### 📝 Legal Draft Editor — 7 Document Types
 > *Split A4 preview + rich-text editor with AI generation in 60 seconds*
 
-<!-- Add screenshot: screenshots/draft_editor.png -->
-![Draft Editor](https://placehold.co/900x480/F8F6F4/7B2C2C?text=📝+Draft+Editor+—+LegalAI)
+![Draft Editor](draft.png)
 
 </div>
 
