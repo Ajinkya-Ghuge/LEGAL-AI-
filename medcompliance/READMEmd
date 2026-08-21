@@ -1,0 +1,112 @@
+# Nights Watch 🏰
+### Compliance & Governance Intelligence Agent
+**AgentCon 2026 — National AI Hackathon**
+*Theme: Building Enterprise AI Agents, ML Systems & Workflow Automation for Bharat*
+
+---
+
+## The Problem
+
+Indian enterprises in BFSI, healthcare, and fintech spend days manually cross-referencing new regulatory circulars (RBI Master Directions, SEBI LODR, DPDP Act 2023, GST notifications) against internal policy documents. The process is slow, error-prone, and leaves audit trails incomplete.
+
+**Nights Watch** automates the entire compliance pipeline — upload a regulation, get a citation-traced audit report with gap analysis, risk scores, and a reviewed remediation plan, in minutes.
+
+---
+
+## Architecture Overview
+
+```
+React + Tailwind (Vercel)
+        │ HTTPS + JWT
+Node/Express Gateway (Render)
+        │ Internal HTTP
+FastAPI + LangGraph Agent Service (Render)
+        │ Postgres + pgvector
+    Supabase (shared data layer)
+```
+
+### 7-Agent Pipeline (LangGraph)
+
+```
+Upload → Orchestrator → Regulatory Intake → Policy Mapping → Gap & Risk
+             └──────────────────────────────────────────────────────┐
+                                                          Remediation Planner
+                                                                    │
+                                                        Human Approval Gate
+                                                                    │
+                                                        Audit & Reporting → Report
+```
+
+Plus: **Conversational Agent** for cited Q&A over the knowledge base.
+
+---
+
+## Stack
+
+| Layer | Technology |
+|---|---|
+| Frontend | React 18 + Tailwind CSS, Vercel |
+| API Gateway | Node.js + Express, Render |
+| Agent Service | Python + FastAPI + LangGraph + LangChain, Render |
+| LLM | Groq (Llama 3.3 70B) → Gemini → Ollama (fallback) |
+| ML | scikit-learn (risk classifier) |
+| Vector Store | Supabase pgvector |
+| Database / Auth / Storage | Supabase (free tier) |
+| PDF Parsing | PyMuPDF |
+| Automation | n8n (optional notifications) |
+
+---
+
+## Documentation
+
+All Phase 1 design documents are in [`/docs`](./docs):
+
+| Document | Description |
+|---|---|
+| [01_PRD.md](./docs/01_PRD.md) | Product Requirements — problem, users, stories, scope, success metrics |
+| [02_System_Design.md](./docs/02_System_Design.md) | Full system design — architecture diagrams, agent graph, data flow, state schema, DB schema, API contract, sequence diagram, NFRs |
+| [03_Risk_Assumptions_Log.md](./docs/03_Risk_Assumptions_Log.md) | Technical risks, mitigations, fallback priorities, dependency pins |
+| [04_Team_Workflow_Plan.md](./docs/04_Team_Workflow_Plan.md) | Team roles, 9-hour build sequence, GitHub Projects ticket list |
+| [05_Judging_Criteria_Traceability.md](./docs/05_Judging_Criteria_Traceability.md) | Rubric → artifact mapping, pre-submission checklist, scoring projection |
+
+---
+
+## Key Design Decisions
+
+- **Citation enforcement:** Every gap classification and risk score in the audit report carries a `(regulation_clause, policy_section)` citation pair — enforced at the Audit & Reporting Agent layer before `report_finalized = true`.
+- **Hard approval gate:** The LangGraph graph has a hard interrupt after remediation drafting. No report is finalized without explicit human approval — a first-class governance requirement, not an afterthought.
+- **Single data layer:** Supabase pgvector collocates vector and relational data, eliminating a second free-tier service and keeping retrieval joins cheap. Trade-off: degrades beyond ~1M vectors (not a concern at this scale).
+- **Hybrid risk scoring:** `final_score = 0.4 × ML_score + 0.6 × LLM_score` — the ML classifier adds reproducibility and speed; the LLM adds contextual reasoning.
+
+---
+
+## Setup
+
+> Full setup instructions to be added during Phase 2 build.
+
+### Environment Variables Required
+
+```
+# agent_service/.env
+GROQ_API_KEY=
+GEMINI_API_KEY=
+SUPABASE_URL=
+SUPABASE_SERVICE_KEY=
+
+# gateway/.env
+SUPABASE_URL=
+SUPABASE_SERVICE_KEY=
+AGENT_SERVICE_URL=
+JWT_SECRET=
+
+# frontend/.env
+VITE_SUPABASE_URL=
+VITE_SUPABASE_ANON_KEY=
+VITE_API_URL=
+```
+
+---
+
+## Team — Nights Watch
+
+Built at AgentCon 2026 | July 16, 2026

@@ -6,6 +6,15 @@ from pathlib import Path
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
+# Load .env file if present (optional, for local dev)
+try:
+    from dotenv import load_dotenv
+    _env_file = BASE_DIR.parent / ".env"
+    if _env_file.exists():
+        load_dotenv(_env_file)
+except ImportError:
+    pass  # python-dotenv not installed — that's fine
+
 SECRET_KEY = "django-legalai-secret-key-change-in-production-2024"
 
 DEBUG = True
@@ -141,7 +150,6 @@ DATA_UPLOAD_MAX_MEMORY_SIZE = 100 * 1024 * 1024   # 100 MB form data
 VAULT_PATH = BASE_DIR.parent / "vault"
 
 # ── Gemini API ────────────────────────────────────────────────────────────────
-GEMINI_API_KEY = os.environ.get(
-    "GEMINI_API_KEY",
-    "AIzaSyD4BMcy9_CepkclmgW_zG5CH1J7g61JsDg"
-)
+# Set GEMINI_API_KEY as an environment variable in .env file
+# Get a key at: https://aistudio.google.com/app/apikey
+GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY")

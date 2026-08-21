@@ -1,10 +1,12 @@
 import fitz
 import os
 import google.generativeai as genai
+from dotenv import load_dotenv
 
 # ================= SETTINGS =================
 
-genai.configure(api_key="AIzaSyD4BMcy9_CepkclmgW_zG5CH1J7g61JsDg")
+load_dotenv()
+genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
 
 CASE_PDF = r"C:\Users\hp\OneDrive\Documents\legal ai\sample_case_dummy.pdf"
 VAULT_PATH = r"C:\Users\hp\OneDrive\Documents\legal ai\vault"

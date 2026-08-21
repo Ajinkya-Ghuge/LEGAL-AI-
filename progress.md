@@ -279,3 +279,57 @@ legal ai/
 - 📨 Demand Letter to Insurance Company
 - 🤝 Settlement Letter / Compromise Proposal
 - Both in tab bar + AI Generate modal dropdown
+
+
+---
+
+## ✅ Phase 5: MedComply AI — AgentCon 2026
+
+> Separate project inside `medcompliance/` folder
+> **Run:** `python medcompliance/app.py`
+> **Open:** http://127.0.0.1:7000
+
+### Architecture
+```
+Upload PDF
+    ↓ [LangGraph StateGraph]
+Agent 1: Intake Agent        → extracts patient, doctor, diagnosis, consent, signatures
+    ↓
+Agent 2: Compliance Agent    → RAG against vault (SOPs, guidelines, medical rules)
+    ↓
+Agent 3: Risk Agent          → HIGH/MEDIUM/LOW risk with factor analysis
+    ↓
+Audit Agent                  → chronology, report, executive summary, verdict
+    ↓
+Compliance Dashboard + Report
+```
+
+### Files Created
+| File | Purpose |
+|------|---------|
+| `medcompliance/app.py` | Flask app — routes, upload, session |
+| `medcompliance/agents/workflow.py` | LangGraph StateGraph orchestrator |
+| `medcompliance/agents/intake_agent.py` | Agent 1 — document extraction |
+| `medcompliance/agents/compliance_agent.py` | Agent 2 — RAG compliance check |
+| `medcompliance/agents/risk_agent.py` | Agent 3 — risk classification |
+| `medcompliance/agents/audit_agent.py` | Agent 4 — audit report generation |
+| `medcompliance/agents/llm.py` | Shared Gemini 2.5 Flash |
+| `medcompliance/utils/pdf_utils.py` | PDF extraction + vault loader |
+| `medcompliance/templates/base.html` | Dark navy theme, no CDN needed |
+| `medcompliance/templates/dashboard.html` | Agent pipeline + recent reports |
+| `medcompliance/templates/analyze.html` | Upload page with live agent steps |
+| `medcompliance/templates/report.html` | Full compliance report UI |
+
+### Features
+- ✅ LangGraph orchestration (falls back to sequential if not available)
+- ✅ 4 specialized AI agents
+- ✅ RAG from existing vault PDFs (assessment guidelines, SOPs, discharge format)
+- ✅ Compliance score 0–100
+- ✅ Risk level HIGH/MEDIUM/LOW
+- ✅ Violations table with severity
+- ✅ Medical chronology
+- ✅ Recommendations
+- ✅ Audit verdict (PASS/CONDITIONAL_PASS/FAIL)
+- ✅ Agent pipeline progress animation
+- ✅ Self-contained CSS (no internet needed)
+- ✅ Reuses existing vault + PDF utils

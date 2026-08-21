@@ -1,0 +1,234 @@
+{% extends "base.html" %}
+{% block title %}Compliance Report — MedComply AI{% endblock %}
+{% block body %}
+<div class="container">
+
+  <!-- Page Header -->
+  <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:1.5rem;padding-top:.5rem;flex-wrap:wrap;gap:1rem">
+    <div>
+      <div style="display:flex;align-items:center;gap:.75rem;margin-bottom:.3rem">
+        <h1 style="font-size:1.4rem;font-weight:800;color:#1a2332">Compliance Audit Report</h1>
+        {% if result.audit_verdict == 'PASS' %}
+        <span class="verdict-pass">Pass</span>
+        {% elif result.audit_verdict == 'CONDITIONAL_PASS' %}
+        <span class="verdict-cond">Conditional Pass</span>
+        {% else %}
+        <span class="verdict-fail">Fail</span>
+        {% endif %}
+      </div>
+      <p style="color:#9ca3af;font-size:.8rem">{{ doc_name }} &nbsp;&middot;&nbsp; {{ result.timestamp }}</p>
+    </div>
+    <div style="display:flex;gap:.6rem">
+      <a href="/analyze" class="btn btn-outline" style="font-size:.82rem;padding:.5rem 1rem">Analyze Another</a>
+      <button onclick="window.print()" class="btn btn-primary" style="font-size:.82rem;padding:.5rem 1rem">Print Report</button>
+    </div>
+  </div>
+
+  <!-- KPI Row -->
+  <div class="grid-3" style="margin-bottom:1.5rem">
+
+    <div class="stat-card" style="border-top:3px solid {% if result.compliance_score >= 80 %}#22c55e{% elif result.compliance_score >= 60 %}#f59e0b{% else %}#ef4444{% endif %}">
+      <div class="stat-value">{{ result.compliance_score }}<span style="font-size:1.1rem;font-weight:600;color:#9ca3af">/100</span></div>
+      <div class="stat-label">Compliance Score</div>
+      <div class="progress-bar" style="margin-top:.8rem">
+        <div class="progress-fill" style="width:{{ result.compliance_score }}%;background:{% if result.compliance_score >= 80 %}#22c55e{% elif result.compliance_score >= 60 %}#f59e0b{% else %}#ef4444{% endif %}"></div>
+      </div>
+    </div>
+
+    <div class="stat-card" style="border-top:3px solid {% if result.risk_level == 'HIGH' %}#ef4444{% elif result.risk_level == 'MEDIUM' %}#f59e0b{% else %}#22c55e{% endif %}">
+      <div class="stat-value" style="color:{% if result.risk_level == 'HIGH' %}#dc2626{% elif result.risk_level == 'MEDIUM' %}#a16207{% else %}#15803d{% endif %}">{{ result.risk_level }}</div>
+      <div class="stat-label">Risk Level</div>
+      <div style="margin-top:.7rem">
+        <span class="badge {% if result.risk_level == 'HIGH' %}badge-red{% elif result.risk_level == 'MEDIUM' %}badge-yellow{% else %}badge-green{% endif %}">
+          {{ result.compliance_status|replace('_',' ') }}
+        </span>
+      </div>
+    </div>
+
+    <div class="stat-card" style="border-top:3px solid {% if result.violations|length > 3 %}#ef4444{% elif result.violations|length > 0 %}#f59e0b{% else %}#22c55e{% endif %}">
+      <div class="stat-value" style="color:{% if result.violations|length > 3 %}#dc2626{% elif result.violations|length > 0 %}#a16207{% else %}#15803d{% endif %}">{{ result.violations|length }}</div>
+      <div class="stat-label">Violations Found</div>
+      <div style="margin-top:.7rem;font-size:.78rem;color:#9ca3af">{{ result.patient_name or 'Unknown Patient' }}</div>
+    </div>
+  </div>
+
+  <!-- Executive Summary -->
+  {% if result.executive_summary %}
+  <div class="card" style="margin-bottom:1.2rem;border-left:3px solid #7B2C2C">
+    <div class="card-body" style="padding:1.2rem 1.5rem">
+      <p class="section-title" style="margin-bottom:.5rem">Executive Summary</p>
+      <p style="color:#374151;line-height:1.7;font-size:.875rem">{{ result.executive_summary }}</p>
+    </div>
+  </div>
+  {% endif %}
+
+  <!-- Patient Info + Agent Log -->
+  <div class="grid-2" style="margin-bottom:1.2rem">
+    <div class="card">
+      <div class="card-header"><h3>Patient Information</h3></div>
+      <div class="card-body" style="padding:1rem 1.5rem">
+        <div style="display:flex;flex-direction:column;gap:.55rem">
+          {% set info = [
+            ('Patient Name', result.patient_name),
+            ('Doctor', result.doctor_name),
+            ('Hospital', result.hospital_name),
+            ('Document Type', result.intake.document_type),
+          ] %}
+          {% for label, value in info %}
+          <div style="display:flex;justify-content:space-between;align-items:center;padding:.45rem 0;border-bottom:1px solid #faf8f6">
+            <span style="color:#9ca3af;font-size:.8rem;font-weight:500">{{ label }}</span>
+            <span style="font-weight:600;color:#1a2332;font-size:.8rem">{{ value or 'N/A' }}</span>
+          </div>
+          {% endfor %}
+          <div style="display:flex;justify-content:space-between;align-items:center;padding:.45rem 0;border-bottom:1px solid #faf8f6">
+            <span style="color:#9ca3af;font-size:.8rem;font-weight:500">Consent Present</span>
+            {% if result.intake.consent_present %}<span class="badge badge-green" style="font-size:.72rem">Yes</span>{% else %}<span class="badge badge-red" style="font-size:.72rem">No</span>{% endif %}
+          </div>
+          <div style="display:flex;justify-content:space-between;align-items:center;padding:.45rem 0">
+            <span style="color:#9ca3af;font-size:.8rem;font-weight:500">Signature Present</span>
+            {% if result.intake.signature_present %}<span class="badge badge-green" style="font-size:.72rem">Yes</span>{% else %}<span class="badge badge-red" style="font-size:.72rem">No</span>{% endif %}
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header"><h3>Agent Pipeline Status</h3></div>
+      <div class="card-body" style="padding:1rem 1.5rem">
+        {% for log in result.agent_log %}
+        <div class="agent-step">
+          <div class="step-dot done"></div>
+          <div style="flex:1;min-width:0">
+            <div style="font-weight:600;font-size:.82rem;color:#1a2332">{{ log.agent }}</div>
+            <div style="font-size:.72rem;color:#9ca3af">
+              {% if log.agent == 'Intake Agent' %}Confidence: {{ (log.confidence * 100)|int }}%{% endif %}
+              {% if log.agent == 'Compliance Agent' %}Score: {{ log.score }}/100 — {{ log.violations }} violations{% endif %}
+              {% if log.agent == 'Risk Agent' %}Risk level: {{ log.risk_level }}{% endif %}
+              {% if log.agent == 'Audit Agent' %}Verdict: {{ log.verdict }}{% endif %}
+            </div>
+          </div>
+          <span class="badge badge-green" style="font-size:.7rem">Done</span>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+
+  <!-- Violations Table -->
+  {% if result.violations %}
+  <div class="card" style="margin-bottom:1.2rem">
+    <div class="card-header">
+      <h3>Compliance Violations</h3>
+      <span class="badge badge-red">{{ result.violations|length }}</span>
+    </div>
+    <table class="table">
+      <thead>
+        <tr><th>Type</th><th>Severity</th><th>Description</th><th>Section</th></tr>
+      </thead>
+      <tbody>
+        {% for v in result.violations %}
+        <tr>
+          <td style="font-weight:600;font-size:.82rem">{{ v.type|replace('_',' ') }}</td>
+          <td>
+            {% if v.severity == 'HIGH' %}<span class="badge badge-red">High</span>
+            {% elif v.severity == 'MEDIUM' %}<span class="badge badge-yellow">Medium</span>
+            {% else %}<span class="badge badge-blue">Low</span>{% endif %}
+          </td>
+          <td style="color:#374151;font-size:.85rem">{{ v.description }}</td>
+          <td style="color:#9ca3af;font-size:.78rem">{{ v.section or '—' }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% endif %}
+
+  <!-- Chronology + Recommendations -->
+  <div class="grid-2" style="margin-bottom:1.2rem">
+
+    {% if result.chronology %}
+    <div class="card">
+      <div class="card-header"><h3>Medical Chronology</h3></div>
+      <div class="card-body" style="padding:1rem 1.5rem">
+        <div style="position:relative;padding-left:1.4rem">
+          <div style="position:absolute;left:5px;top:6px;bottom:6px;width:1.5px;background:#f0ebe6"></div>
+          {% for item in result.chronology %}
+          <div style="position:relative;margin-bottom:.9rem">
+            <div class="timeline-dot" style="position:absolute;left:-1.4rem;top:4px"></div>
+            <div style="font-size:.72rem;color:#9ca3af;font-weight:600;margin-bottom:.15rem">{{ item.date }}</div>
+            <div style="font-weight:600;font-size:.83rem;color:#1a2332">{{ item.event }}</div>
+            {% if item.significance %}<div style="font-size:.72rem;color:#9ca3af">{{ item.significance }}</div>{% endif %}
+          </div>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+    {% endif %}
+
+    {% if result.recommendations %}
+    <div class="card">
+      <div class="card-header"><h3>Recommendations</h3></div>
+      <div class="card-body" style="padding:1rem 1.5rem">
+        <div style="display:flex;flex-direction:column;gap:.6rem">
+          {% for r in result.recommendations %}
+          <div style="padding:.7rem .9rem;border-radius:8px;border-left:3px solid
+            {% if loop.index == 1 %}#ef4444{% elif loop.index == 2 %}#f59e0b{% else %}#7B2C2C{% endif %};background:#faf8f6">
+            <p style="font-size:.83rem;color:#374151;line-height:1.5">{{ r }}</p>
+          </div>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+    {% endif %}
+  </div>
+
+  <!-- Risk Factors -->
+  {% if result.risk_factors %}
+  <div class="card" style="margin-bottom:1.2rem">
+    <div class="card-header"><h3>Risk Factor Analysis</h3></div>
+    <div class="card-body">
+      <div class="grid-3">
+        {% for rf in result.risk_factors %}
+        <div style="padding:.9rem 1rem;background:#faf8f6;border-radius:10px;border:1px solid #f0ebe6">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.4rem">
+            <span style="font-weight:700;font-size:.82rem;color:#1a2332">{{ rf.factor }}</span>
+            {% if rf.impact == 'HIGH' %}<span class="badge badge-red" style="font-size:.7rem">High</span>
+            {% elif rf.impact == 'MEDIUM' %}<span class="badge badge-yellow" style="font-size:.7rem">Med</span>
+            {% else %}<span class="badge badge-green" style="font-size:.7rem">Low</span>{% endif %}
+          </div>
+          <p style="font-size:.78rem;color:#9ca3af;line-height:1.4">{{ rf.explanation }}</p>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+  {% endif %}
+
+  <!-- Diagnoses + Medicines -->
+  {% if result.diagnosis or result.intake.medicines %}
+  <div class="grid-2">
+    {% if result.diagnosis %}
+    <div class="card">
+      <div class="card-header"><h3>Diagnoses</h3></div>
+      <div class="card-body" style="padding:1rem 1.5rem">
+        <div style="display:flex;flex-wrap:wrap;gap:.5rem">
+          {% for d in result.diagnosis %}<span class="badge badge-primary">{{ d }}</span>{% endfor %}
+        </div>
+      </div>
+    </div>
+    {% endif %}
+    {% if result.intake.medicines %}
+    <div class="card">
+      <div class="card-header"><h3>Medicines Prescribed</h3></div>
+      <div class="card-body" style="padding:1rem 1.5rem">
+        <div style="display:flex;flex-wrap:wrap;gap:.5rem">
+          {% for m in result.intake.medicines %}<span class="badge badge-gray">{{ m }}</span>{% endfor %}
+        </div>
+      </div>
+    </div>
+    {% endif %}
+  </div>
+  {% endif %}
+
+</div>
+{% endblock %}

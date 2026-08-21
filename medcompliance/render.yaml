@@ -1,0 +1,10 @@
+services:
+  - type: web
+    name: medcomply-ai
+    runtime: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn app:app --timeout 120
+    envVars:
+      - key: GEMINI_API_KEY
+        sync: false   # you paste the value in Render dashboard — never in code
+    rootDir: .

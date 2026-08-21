@@ -1,0 +1,44 @@
+# Secrets — NEVER commit these
+.env
+*.env
+.env.*
+secrets.py
+config_local.py
+
+# Python cache
+__pycache__/
+*.py[cod]
+*.pyc
+*.pyo
+*.pyd
+.Python
+
+# Virtual environments
+.venv/
+venv/
+env/
+ENV/
+
+# Uploads (user files)
+uploads/*.pdf
+uploads/*.docx
+uploads/*.doc
+!uploads/.gitkeep
+
+# Generated outputs
+output/
+*.log
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# IDE
+.vscode/
+.idea/
+
+# Test/temp scripts
+tmp_*.py
+test_*.py
+create_sample_pdf.py

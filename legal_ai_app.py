@@ -19,7 +19,10 @@ except ImportError:
 
 try:
     import google.generativeai as genai
-    genai.configure(api_key="AIzaSyD4BMcy9_CepkclmgW_zG5CH1J7g61JsDg")
+    import os
+    from dotenv import load_dotenv
+    load_dotenv()
+    genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
     gemini_model = genai.GenerativeModel("gemini-2.5-flash")
     HAS_GEMINI = True
 except ImportError:

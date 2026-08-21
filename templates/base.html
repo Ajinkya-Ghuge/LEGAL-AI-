@@ -5,6 +5,15 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}LegalAI{% endblock %}</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Fallback CDN -->
+    <script>
+    if (typeof tailwind === 'undefined') {
+        var s = document.createElement('link');
+        s.rel = 'stylesheet';
+        s.href = 'https://unpkg.com/tailwindcss@3.4.1/dist/tailwind.min.css';
+        document.head.appendChild(s);
+    }
+    </script>
     <script>
         tailwind.config = {
             theme: {

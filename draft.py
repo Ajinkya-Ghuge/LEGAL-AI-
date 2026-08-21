@@ -3,12 +3,14 @@ import os
 import google.generativeai as genai
 from datetime import datetime
 from fpdf import FPDF
+from dotenv import load_dotenv
 
 # ==============================
 # CONFIG
 # ==============================
 
-genai.configure(api_key="AIzaSyD4BMcy9_CepkclmgW_zG5CH1J7g61JsDg")
+load_dotenv()
+genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
 
 CASE_PDF = r"C:\Users\hp\OneDrive\Documents\legal ai\sample_case_dummy.pdf"
 

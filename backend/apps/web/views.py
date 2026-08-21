@@ -28,16 +28,60 @@ logger = logging.getLogger(__name__)
 # ── AI helper ─────────────────────────────────────────────────────────────────
 
 def ai_generate(prompt: str, fallback: str = "AI unavailable.") -> str:
+    """
+    Generate content via Gemini API.
+    Tries gemini-2.5-flash first, falls back to gemini-1.5-flash, then gemini-pro.
+    Returns None (not a string) on error so callers can distinguish failure from empty output.
+    """
     try:
         import google.generativeai as genai
-        genai.configure(api_key=settings.GEMINI_API_KEY)
-        model = genai.GenerativeModel("gemini-2.5-flash")
-        return model.generate_content(prompt).text
     except ImportError:
-        return fallback
-    except Exception as e:
-        logger.exception("Gemini error")
-        return f"AI Error: {e}"
+        logger.error("google-generativeai not installed")
+        return None
+
+    api_key = settings.GEMINI_API_KEY
+    if not api_key:
+        logger.error("GEMINI_API_KEY not set")
+        return None
+
+    # Model preference order — try lighter quota models first
+    models_to_try = [
+        "gemini-2.5-flash-lite",
+        "gemini-2.0-flash-lite",
+        "gemini-2.0-flash",
+        "gemini-flash-lite-latest",
+        "gemini-2.5-flash",
+        "gemini-pro-latest",
+    ]
+
+    genai.configure(api_key=api_key)
+
+    last_error = None
+    for model_name in models_to_try:
+        try:
+            model = genai.GenerativeModel(model_name)
+            response = model.generate_content(prompt)
+            text = response.text
+            if text:
+                logger.info("ai_generate: success with %s (%d chars)", model_name, len(text))
+                return text
+        except Exception as e:
+            err_str = str(e)
+            last_error = err_str
+            # Quota/rate-limit — try next model
+            if "429" in err_str or "quota" in err_str.lower() or "rate" in err_str.lower():
+                logger.warning("Gemini quota hit on %s, trying next model...", model_name)
+                continue
+            # Key leaked or invalid — no point retrying other models with same key
+            if "leaked" in err_str.lower() or "403" in err_str or "API_KEY_INVALID" in err_str:
+                logger.error("Gemini API key error: %s", err_str[:200])
+                break
+            # Other error — log and try next
+            logger.warning("Gemini error on %s: %s", model_name, err_str[:200])
+            continue
+
+    logger.error("All Gemini models failed. Last error: %s", last_error)
+    return None
 
 
 def load_vault_text(max_chars: int = 6000) -> str:
@@ -296,6 +340,7 @@ VAULT CONTEXT:
     try:
         raw = ai_generate(prompt, fallback="")
         if not raw:
+            logger.warning("Auto-analysis: AI returned no content for case %d", case.pk)
             return
 
         # Clean up response — remove markdown code blocks if present
@@ -475,6 +520,15 @@ def medical_analysis(request):
     summary  = None
     case_id  = request.GET.get("case_id", "") or request.POST.get("case_id_hidden", "")
 
+    # Check API key is configured
+    if not settings.GEMINI_API_KEY:
+        error = (
+            "Gemini API key is not configured. "
+            "Please add your API key to backend/legalai/settings.py (GEMINI_API_KEY) "
+            "or set the GEMINI_API_KEY environment variable. "
+            "Get a free key at: https://aistudio.google.com/app/apikey"
+        )
+
     # Load existing summary if case_id given
     if case_id and request.method == "GET":
         try:
@@ -482,7 +536,7 @@ def medical_analysis(request):
         except MedicalSummary.DoesNotExist:
             pass
 
-    if request.method == "POST":
+    if request.method == "POST" and not error:
         case_text = ""
         case_id   = request.POST.get("case_id_hidden", "")
 
@@ -523,6 +577,10 @@ def medical_analysis(request):
                         )
                     except Case.DoesNotExist:
                         pass
+            else:
+                # PDF extraction failed — set an error so user sees it
+                error = f"Could not extract text from the uploaded PDF. Error: {result_pdf.get('error', 'Unknown error')}. Please ensure the PDF is not password-protected and is a valid PDF file."
+                logger.error("PDF extraction failed in medical_analysis: %s", result_pdf.get('error'))
 
             try:
                 os.remove(tmp_path)
@@ -535,6 +593,13 @@ def medical_analysis(request):
         if not case_text:
             error = "Please upload a PDF or provide case text."
         else:
+            # Quick sanity check — if text is suspiciously short, warn but continue
+            if len(case_text.strip()) < 50:
+                error = "The uploaded PDF appears to have very little readable text. Please check the file and try again."
+            else:
+                pass  # continue below
+
+        if not error and case_text:
             vault_text = load_vault_text()
             prompt = f"""
 You are a SENIOR INDIAN MACT ADVOCATE with 20+ years of courtroom experience.
@@ -583,20 +648,27 @@ Generate a FULL professional MACT injury case report with:
 """
             result = ai_generate(prompt)
 
-            # Save to DB if case_id provided
-            if case_id and result:
-                try:
-                    case_obj = Case.objects.get(pk=case_id)
-                    summary, _ = MedicalSummary.objects.update_or_create(
-                        case=case_obj,
-                        defaults={
-                            "notes":         result,
-                            "ai_raw_output": result,
-                            "injuries":      case_obj.injuries or [],
-                        }
-                    )
-                except Case.DoesNotExist:
-                    pass
+            if not result:
+                error = (
+                    "AI analysis failed. This is usually caused by an API quota limit or "
+                    "an invalid/expired API key. Please check your GEMINI_API_KEY and try again."
+                )
+                result = None
+            else:
+                # Save to DB if case_id provided
+                if case_id:
+                    try:
+                        case_obj = Case.objects.get(pk=case_id)
+                        summary, _ = MedicalSummary.objects.update_or_create(
+                            case=case_obj,
+                            defaults={
+                                "notes":         result,
+                                "ai_raw_output": result,
+                                "injuries":      case_obj.injuries or [],
+                            }
+                        )
+                    except Case.DoesNotExist:
+                        pass
 
     all_cases = [normalize_case(c) for c in Case.objects.order_by("-created_at")]
 
