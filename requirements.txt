@@ -10,8 +10,8 @@ dj-database-url==2.1.0
 gunicorn==21.2.0
 whitenoise==6.6.0
 
-# PDF Processing
-PyMuPDF==1.23.8
+# PDF Processing (using newer version with pre-built wheels)
+PyMuPDF==1.24.0
 
 # AI/ML
 google-generativeai==0.3.2
