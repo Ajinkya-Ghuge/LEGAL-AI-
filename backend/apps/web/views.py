@@ -20,17 +20,19 @@ import json
 from apps.cases.models import Case
 from apps.documents.models import Document
 from apps.documents.services import extract_pdf, extract_text_for_ai
+from apps.documents.full_pdf_analyzer import analyze_full_pdf, quick_analysis_vs_full_analysis
 from apps.timeline.models import TimelineEvent, MedicalSummary
 from apps.drafts.models import Draft
+from apps.web.formatters import format_medical_analysis, format_timeline_event
 
 logger = logging.getLogger(__name__)
 
 # ── AI helper ─────────────────────────────────────────────────────────────────
 
-def ai_generate(prompt: str, fallback: str = "AI unavailable.") -> str:
+def ai_generate(prompt: str, fallback: str = "AI unavailable.", conversation_history: list = None) -> str:
     """
-    Generate content via Gemini API.
-    Tries gemini-2.5-flash first, falls back to gemini-1.5-flash, then gemini-pro.
+    Generate content via Gemini API with conversation history support.
+    Tries best models first for optimal quality and speed.
     Returns None (not a string) on error so callers can distinguish failure from empty output.
     """
     try:
@@ -44,7 +46,7 @@ def ai_generate(prompt: str, fallback: str = "AI unavailable.") -> str:
         logger.error("GEMINI_API_KEY not set")
         return None
 
-    # Model preference order — try lighter quota models first
+    # Model preference order — use the same models as before
     models_to_try = [
         "gemini-2.5-flash-lite",
         "gemini-2.0-flash-lite",
@@ -59,8 +61,30 @@ def ai_generate(prompt: str, fallback: str = "AI unavailable.") -> str:
     last_error = None
     for model_name in models_to_try:
         try:
-            model = genai.GenerativeModel(model_name)
-            response = model.generate_content(prompt)
+            # Initialize model with conversation history if provided
+            if conversation_history:
+                model = genai.GenerativeModel(
+                    model_name,
+                    generation_config={
+                        "temperature": 0.7,
+                        "top_p": 0.95,
+                        "max_output_tokens": 2048,
+                    }
+                )
+                # Start chat with history
+                chat = model.start_chat(history=conversation_history)
+                response = chat.send_message(prompt)
+            else:
+                model = genai.GenerativeModel(
+                    model_name,
+                    generation_config={
+                        "temperature": 0.7,
+                        "top_p": 0.95,
+                        "max_output_tokens": 2048,
+                    }
+                )
+                response = model.generate_content(prompt)
+            
             text = response.text
             if text:
                 logger.info("ai_generate: success with %s (%d chars)", model_name, len(text))
@@ -454,12 +478,21 @@ def timeline(request):
 
     events    = [normalize_event(e) for e in qs]
     all_cases = [normalize_case(c) for c in Case.objects.order_by("-created_at")]
+    
+    # Get case object for chat panel
+    case = None
+    if case_id:
+        try:
+            case = normalize_case(Case.objects.get(pk=case_id))
+        except Case.DoesNotExist:
+            pass
 
     return render(request, "timeline.html", {
         "timeline":          events,
         "active_section":    active_section,
         "all_cases":         all_cases,
         "selected_case_id":  case_id,
+        "case":              case or {"id": "", "case_no": "Select a case"},
     })
 
 
@@ -600,43 +633,232 @@ def medical_analysis(request):
                 pass  # continue below
 
         if not error and case_text:
-            vault_text = load_vault_text()
-            prompt = f"""
+            # ✅ STEP 1: Determine which analysis method to use based on file size
+            analysis_decision = quick_analysis_vs_full_analysis(case_text)
+            logger.info(
+                "📊 Analysis decision: %s (estimated %d seconds, %d API calls)",
+                analysis_decision["method"], 
+                analysis_decision["estimated_time"],
+                analysis_decision["api_calls"]
+            )
+            
+            # ✅ STEP 2: Choose analysis method
+            if analysis_decision["method"] == "full":
+                # Large file - use multi-pass analysis
+                logger.info("🔄 Using multi-pass analysis for large PDF...")
+                
+                # Create AI generate wrapper function
+                def ai_gen_wrapper(prompt):
+                    return ai_generate(prompt)
+                
+                # Run full multi-pass analysis
+                full_result = analyze_full_pdf(case_text, ai_gen_wrapper, show_progress=True)
+                
+                if full_result["success"]:
+                    result = full_result["final_report"]
+                    logger.info(
+                        "✅ Multi-pass analysis complete: %d chunks processed, %d chars total",
+                        full_result["chunks_processed"],
+                        full_result["total_chars_processed"]
+                    )
+                else:
+                    error = f"Multi-pass analysis failed: {full_result.get('error', 'Unknown error')}"
+                    result = None
+            
+            else:
+                # Small/medium file - use single-pass analysis (current method)
+                logger.info("⚡ Using single-pass analysis for %s file", analysis_decision["method"])
+                
+                vault_text = load_vault_text()
+                prompt = f"""
 You are a SENIOR INDIAN MACT ADVOCATE with 20+ years of courtroom experience.
 
-STRICT RULES:
-- DO NOT guess facts. If information is missing, write: NOT FOUND
-- Use ONLY given Case + Vault text
-- Use Indian legal tone (court style)
-- Output must be VERY DETAILED and PROFESSIONAL
+Generate a PROFESSIONAL legal medical report in CLEAN STRUCTURED FORMAT using markdown.
 
-Generate a FULL professional MACT injury case report with:
+FORMATTING RULES:
+- Use ## for main section headings
+- Use ### for subheadings  
+- Use numbered lists (1., 2., 3.) for sequences and steps
+- Use bullet points (- or *) for items in lists
+- Write clear paragraphs for explanations
+- Use **bold** for important terms, names, and amounts
+- NO EMOJIS - maintain professional legal tone
+- Use tables where data needs to be compared
+- Write "NOT FOUND" if information is missing
 
-1) MEDICAL CHRONOLOGY
-   - Admission date, Surgery date, Hospital stay, Discharge date, Follow-ups
+Generate report with EXACTLY these sections:
 
-2) INJURIES IDENTIFIED
-   - List injuries with severity assessment
+## 1. Medical Chronology
 
-3) TREATMENT SUMMARY
-   - Surgery details, Medicines, Rehabilitation
+[Write a clear paragraph describing the medical timeline from admission to discharge]
 
-4) FINANCIAL & COMPENSATION ANALYSIS
-   - Actual medical costs, Future expenses, Loss of income, Pain & suffering
+**Key Medical Events:**
+1. Admission: [Date and circumstances]
+2. Emergency Treatment: [Details]
+3. Surgery/Procedures: [Date and description]
+4. Hospital Stay: [Duration and progress]
+5. Discharge: [Date and condition]
+6. Follow-up Care: [Details]
 
-5) CLAIM HEADS UNDER MOTOR VEHICLES ACT
-   - Medical expenses, Loss of income, Pain & suffering, Future disability,
-     Loss of amenities, Conveyance & diet
+## 2. Injuries Identified
 
-6) MISSING DOCUMENTS CHECKLIST
+[Opening paragraph assessing overall injury severity]
 
-7) RELEVANT LEGAL SECTIONS (with explanation)
-   - MV Act 166, 168, 173
+**Primary Injuries:**
+- [Injury 1 - detailed description with medical terms]
+- [Injury 2 - description]
 
-8) LAWYER INSIGHTS
-   - Strength of claim (Strong/Moderate/Weak)
-   - Risks
-   - Recommended legal strategy
+**Secondary Injuries:**
+- [If any, otherwise write "None documented"]
+
+**Pre-existing Conditions:**
+- [List any, or "None found in records"]
+
+**ICD-10 Codes:**
+- [List relevant codes if found]
+
+## 3. Treatment Summary
+
+[Paragraph describing treatment approach and medical interventions]
+
+**Surgical Interventions:**
+1. [Procedure name] - [Date] - [Surgeon] - [Duration] - [Details]
+
+**Medications Prescribed:**
+- [Drug name] ([Generic name]) - [Dosage] - [Frequency] - [Duration]
+
+**Diagnostic Tests:**
+- [Test name] - [Date] - [Key findings]
+
+**Rehabilitation Plan:**
+- Physiotherapy: [Details]
+- Expected recovery period: [Duration]
+- Functional limitations: [Description]
+
+## 4. Financial and Compensation Analysis
+
+**Actual Medical Expenses Incurred:**
+
+| Expense Category | Amount (₹) |
+|-----------------|------------|
+| Hospital admission charges | [amount] |
+| Surgery and OT charges | [amount] |
+| Medications | [amount] |
+| Diagnostic tests | [amount] |
+| Doctor's fees | [amount] |
+| **Total Actual Expenses** | **₹ [total]** |
+
+**Estimated Future Medical Expenses:**
+- Follow-up consultations: ₹ [amount]
+- Ongoing medication: ₹ [amount]  
+- Physiotherapy (6 months): ₹ [amount]
+- **Estimated Future Total:** ₹ [amount]
+
+**Loss of Income Calculation:**
+- Occupation: [Job title]
+- Monthly income: ₹ [amount]
+- Period of incapacity: [months]
+- **Total income loss:** ₹ [amount]
+
+## 5. Claim Heads Under Motor Vehicles Act, 1988
+
+**Compensation Calculation (Section 166):**
+
+1. **Medical Expenses (Actual)** - ₹ [amount]
+   - As per bills and receipts submitted
+
+2. **Loss of Earnings** - ₹ [amount]
+   - Based on [calculation method]
+   - Multiplier: [number] (as per Sarla Verma formula)
+
+3. **Pain and Suffering** - ₹ [amount]
+   - Based on injury severity and duration
+
+4. **Permanent Disability Compensation** - ₹ [amount]
+   - Functional loss: [percentage]%
+   - Impact on earning capacity
+
+5. **Loss of Amenities of Life** - ₹ [amount]
+   - Based on lifestyle impact
+
+6. **Conveyance and Attendant Charges** - ₹ [amount]
+   - During treatment and recovery
+
+**TOTAL ESTIMATED COMPENSATION:** ₹ [sum of all heads]
+
+## 6. Missing Documents Checklist
+
+**Critical Documents Required for Filing:**
+
+**Police and Legal Documents:**
+- [ ] First Information Report (FIR) copy
+- [ ] Driving license of respondent
+- [ ] Vehicle registration certificate
+- [ ] Insurance policy copy
+
+**Medical Documents:**
+- [ ] Complete discharge summary
+- [ ] All medical bills and receipts
+- [ ] X-ray/MRI/CT scan reports
+- [ ] Doctor's certificates
+- [ ] Disability certificate (if applicable)
+
+**Financial Documents:**
+- [ ] Income proof (salary slips/ITR)
+- [ ] Form 16/Income tax returns
+- [ ] Bank statements
+- [ ] Employment proof
+
+**Other:**
+- [ ] Accident site photographs
+- [ ] Witness statements
+
+## 7. Relevant Legal Provisions
+
+**Section 166, Motor Vehicles Act, 1988:**
+Application for compensation - [Brief explanation of how it applies]
+
+**Section 168, Motor Vehicles Act:**
+Award of compensation - [Explanation]
+
+**Applicable Legal Precedents:**
+
+1. **Sarla Verma v. Delhi Transport Corporation (2009) 6 SCC 121**
+   - Standardized multiplier method for compensation calculation
+   - [Relevance to this case]
+
+2. **[Other relevant judgment if applicable]**
+   - [Brief description and relevance]
+
+## 8. Legal Strategy and Recommendations
+
+**Assessment of Case Strength:** [Strong/Moderate/Weak]
+
+**Justification:**
+[Paragraph explaining the assessment based on evidence quality, injury severity, and documentation]
+
+**Strengths of the Claim:**
+1. [Strength point 1 with explanation]
+2. [Strength point 2]
+3. [Strength point 3]
+
+**Potential Challenges:**
+1. [Challenge 1 and mitigation strategy]
+2. [Challenge 2 and mitigation strategy]
+
+**Recommended Legal Actions:**
+1. [Action item 1 with timeline]
+2. [Action item 2]
+3. [Action item 3]
+
+**Expected Timeline:**
+- Filing of claim petition: [timeframe]
+- First hearing: [estimated months]
+- Evidence submission: [estimated months]
+- Final award: [estimated months from filing]
+
+**Settlement Prospects:**
+[Assessment of whether out-of-court settlement is advisable and at what compensation range]
 
 ==================== LEGAL VAULT ====================
 {vault_text}
@@ -646,15 +868,20 @@ Generate a FULL professional MACT injury case report with:
 {case_text}
 =====================================================
 """
-            result = ai_generate(prompt)
+                result = ai_generate(prompt)
 
-            if not result:
-                error = (
-                    "AI analysis failed. This is usually caused by an API quota limit or "
-                    "an invalid/expired API key. Please check your GEMINI_API_KEY and try again."
-                )
-                result = None
-            else:
+                if not result:
+                    error = (
+                        "AI analysis failed. This is usually caused by an API quota limit or "
+                        "an invalid/expired API key. Please check your GEMINI_API_KEY and try again."
+                    )
+                    result = None
+            
+            # ✅ STEP 3: Format result (same for both methods)
+            if result and not error:
+                # Format the result into beautiful structured sections
+                formatted_result = format_medical_analysis(result)
+                
                 # Save to DB if case_id provided
                 if case_id:
                     try:
@@ -672,8 +899,12 @@ Generate a FULL professional MACT injury case report with:
 
     all_cases = [normalize_case(c) for c in Case.objects.order_by("-created_at")]
 
+    # Pass formatted result if available
+    template_result = formatted_result if result and not error else None
+
     return render(request, "medical_analysis.html", {
-        "result":           result,
+        "result":           template_result,  # Now structured
+        "raw_result":       result,           # Keep raw for fallback
         "error":            error,
         "summary":          summary,
         "all_cases":        all_cases,
@@ -682,6 +913,11 @@ Generate a FULL professional MACT injury case report with:
 
 
 def ask_question(request):
+    """
+    Legal-focused conversational AI with verified Indian law knowledge.
+    Answers general questions but specializes in accurate Indian legal guidance.
+    Always provides structured, actionable, helpful responses.
+    """
     if request.method != "POST":
         return redirect("dashboard")
 
@@ -689,21 +925,83 @@ def ask_question(request):
     if not question:
         return redirect("dashboard")
 
+    # Get conversation history from session
+    conversation_key = "general_chat_history"
+    history = request.session.get(conversation_key, [])
+    
+    # Load legal vault for accurate legal knowledge
     vault_text = load_vault_text(4000)
-    answer = ai_generate(f"""
-You are a senior Indian legal AI assistant.
-Answer this legal question concisely and professionally.
-Cite relevant Indian law sections where applicable.
+    
+    # Simplified prompt - let AI focus on content, frontend handles structure
+    system_prompt = f"""You are a helpful AI assistant with expertise in Indian legal matters (MACT, Motor Vehicles Act, IPC, CrPC, property disputes, etc.).
 
-VAULT CONTEXT:
+Answer questions clearly and informatively. Use this format naturally:
+
+- Start with a clear heading or topic name
+- Break down answers into numbered points (1. 2. 3.) for main ideas
+- Use bullet points (-) for details under each point  
+- Use **bold** for important terms or section names
+- Cite law sections properly (e.g., "Section 166 of Motor Vehicles Act, 1988")
+
+Example:
+## Section 166 - MACT Compensation
+
+1. **Purpose**
+   - Provides compensation for motor accident victims
+   - Covers death and injury cases
+
+2. **Who Can Claim**
+   - Injured person directly
+   - Legal heirs in case of death
+
+3. **Time Limit**
+   - File within 6 months
+   - Can be extended by tribunal
+
+---
+
+LEGAL KNOWLEDGE:
 {vault_text}
 
-QUESTION: {question}
-""", fallback="AI unavailable. Install google-generativeai.")
+---
+
+Answer naturally but use numbered points and bullet structure where helpful."""
+
+    # Prepare conversation history for Gemini API format
+    gemini_history = []
+    for msg in history[-10:]:  # Last 10 messages for context
+        role = "user" if msg["role"] == "user" else "model"
+        gemini_history.append({
+            "role": role,
+            "parts": [msg["content"]]
+        })
+    
+    # If this is first message, add system context
+    if not gemini_history:
+        full_prompt = f"{system_prompt}\n\nQUESTION: {question}"
+        conversation_history = None
+    else:
+        full_prompt = question
+        conversation_history = gemini_history
+    
+    # Generate AI response with conversation context
+    answer = ai_generate(full_prompt, conversation_history=conversation_history)
+    
+    if not answer:
+        answer = "I apologize, but I'm unable to generate a response right now. This could be due to API limitations. Please try again in a moment."
+    
+    # Save to conversation history
+    history.append({"role": "user", "content": question})
+    history.append({"role": "assistant", "content": answer})
+    
+    # Keep last 50 messages
+    request.session[conversation_key] = history[-50:]
+    request.session.modified = True
 
     return render(request, "ask_result.html", {
         "question": question,
-        "answer":   answer,
+        "answer": answer,
+        "conversation_history": history[-10:],  # Show last 10 for context
     })
 
 
@@ -711,50 +1009,171 @@ QUESTION: {question}
 
 @csrf_exempt
 @require_http_methods(["POST"])
-def api_chat(request):
-    try:
-        body    = json.loads(request.body)
-    except Exception:
-        body    = {}
+def api_clear_chat(request):
+    """Clear general chatbot conversation history"""
+    request.session.pop("general_chat_history", None)
+    request.session.modified = True
+    return JsonResponse({"status": "ok"})
 
-    message = body.get("message", "")
+
+@csrf_exempt
+@require_http_methods(["POST"])
+def api_chat(request):
+    """
+    Context-aware AI chat for case-specific queries
+    Includes: Case data, documents, timeline, medical summary, vault knowledge
+    """
+    try:
+        body = json.loads(request.body)
+    except Exception:
+        body = {}
+
+    message = body.get("message", "").strip()
     case_id = body.get("case_id", "")
 
+    if not message:
+        return JsonResponse({"reply": "Please ask a question about this case."})
+
+    # Build comprehensive case context
     case_context = ""
+    sources = []
+    
     if case_id:
         try:
-            c = Case.objects.get(pk=case_id)
-            case_context = (
-                "CASE CONTEXT:\n"
-                f"Case: {c.case_no} — {c.title}\n"
-                f"Petitioner: {c.client_name}, Age: {c.client_age}\n"
-                f"Accident: {c.accident_date} at {c.accident_place}\n"
-                f"Injuries: {', '.join(c.injuries or [])}\n"
-                f"Claim: {c.claim_amount_display}"
-            )
+            case = Case.objects.get(pk=case_id)
+            
+            # 1. CASE BASIC INFO
+            case_context += f"""
+CASE: {case.case_no} — {case.title}
+TYPE: {case.get_case_type_display()}
+STATUS: {case.get_status_display()}
+
+PETITIONER:
+- Name: {case.client_name}
+- Father's Name: {case.father_name or 'N/A'}
+- Age: {case.client_age or 'N/A'}
+- Occupation: {case.occupation or 'N/A'}
+- Address: {case.client_address or 'N/A'}
+
+ACCIDENT:
+- Date: {case.accident_date or 'N/A'}
+- Place: {case.accident_place or 'N/A'}
+- Vehicle No: {case.vehicle_no or 'N/A'}
+- Hospital: {case.hospital or 'N/A'}
+- FIR No: {case.fir_no or 'N/A'}
+- Tribunal: {case.tribunal or 'N/A'}
+
+INJURIES:
+{chr(10).join(f'- {inj}' for inj in (case.injuries or ['No injuries recorded']))}
+
+CLAIM AMOUNT: {case.claim_amount_display}
+
+COMPENSATION BREAKDOWN:
+{chr(10).join(f'- {comp.get("head", "Item")}: {comp.get("amount", "N/A")}' for comp in (case.compensation or []))}
+"""
+            sources.append(f"Case #{case.case_no}")
+            
+            # 2. MEDICAL SUMMARY (if exists)
+            try:
+                summary = MedicalSummary.objects.get(case=case)
+                if summary.notes:
+                    case_context += f"\n\nMEDICAL ANALYSIS SUMMARY:\n{summary.notes[:1500]}\n"
+                    sources.append("Medical Analysis Report")
+                    
+                if summary.treatments:
+                    case_context += f"\n\nTREATMENTS:\n"
+                    for t in summary.treatments[:10]:
+                        case_context += f"- {t.get('type', 'Treatment')}: {t.get('detail', 'N/A')}\n"
+                        
+                if summary.medications:
+                    case_context += f"\n\nMEDICATIONS:\n"
+                    case_context += "\n".join(f"- {med}" for med in summary.medications[:20])
+                    
+                if summary.missing_docs:
+                    case_context += f"\n\nMISSING DOCUMENTS:\n"
+                    case_context += "\n".join(f"- {doc}" for doc in summary.missing_docs)
+                    
+            except MedicalSummary.DoesNotExist:
+                pass
+            
+            # 3. TIMELINE EVENTS
+            events = TimelineEvent.objects.filter(case=case).order_by('date')[:20]
+            if events.exists():
+                case_context += "\n\nMEDICAL TIMELINE:\n"
+                for event in events:
+                    case_context += f"- {event.date}: {event.title}"
+                    if event.doctor:
+                        case_context += f" (Dr. {event.doctor})"
+                    case_context += f" - {event.description[:100]}\n"
+                    if event.medications:
+                        case_context += f"  Medications: {', '.join(event.medications[:5])}\n"
+                sources.append("Timeline Records")
+            
+            # 4. DOCUMENTS (show what's available)
+            docs = Document.objects.filter(case=case)
+            if docs.exists():
+                case_context += "\n\nAVAILABLE DOCUMENTS:\n"
+                for doc in docs:
+                    case_context += f"- {doc.original_name} ({doc.pages} pages, {doc.get_doc_type_display()})\n"
+                    # Include snippet of document text if available
+                    if doc.extracted_text:
+                        snippet = doc.extracted_text[:800].replace('\n', ' ')
+                        case_context += f"  Preview: {snippet}...\n"
+                sources.append("Case Documents")
+                
         except Case.DoesNotExist:
-            pass
+            return JsonResponse({"reply": "Case not found. Please select a valid case."})
+    
+    # 5. VAULT KNOWLEDGE (legal precedents, laws)
+    vault_text = load_vault_text(max_chars=3000)
+    if vault_text:
+        case_context += f"\n\nLEGAL KNOWLEDGE BASE:\n{vault_text}\n"
+        sources.append("MACT Legal Vault")
 
-    reply = ai_generate(f"""
-You are LegalAI, a senior Indian legal assistant specializing in MACT and Indian law.
-Be concise, professional, and helpful. Answer in 2-4 sentences max.
+    # Generate AI response with full context
+    prompt = f"""
+You are a SENIOR INDIAN MACT ADVOCATE with 20+ years of experience.
 
+The lawyer is asking about a specific case. Answer based ONLY on the case data provided below.
+
+IMPORTANT RULES:
+1. Be SPECIFIC - cite exact facts, dates, amounts from the case
+2. Be CONCISE - answer in 3-5 sentences max
+3. Be PROFESSIONAL - use legal terminology lawyers understand
+4. CITE SOURCES - mention where info comes from ("According to Timeline", "As per Medical Analysis", "Based on Case Documents")
+5. If you don't have the information, SAY SO - don't make things up
+6. For legal questions, cite relevant sections from Motor Vehicles Act or case law
+
+==================== CASE DATA ====================
 {case_context}
+====================================================
 
-USER: {message}
-""", fallback="AI unavailable. Install google-generativeai.")
+LAWYER'S QUESTION: {message}
+
+YOUR ANSWER (cite sources, be specific with facts):
+"""
+
+    reply = ai_generate(prompt)
+    
+    if not reply:
+        reply = "Sorry, I couldn't generate a response. Please check your API configuration."
+    
+    # Add source citations at the end
+    if sources:
+        source_text = ", ".join(set(sources))
+        reply += f"\n\n📎 *Sources: {source_text}*"
 
     # Persist to session
     if case_id:
-        key     = f"chat_{case_id}"
+        key = f"chat_{case_id}"
         history = request.session.get(key, [])
-        now     = datetime.now().strftime("%I:%M %p")
+        now = datetime.now().strftime("%I:%M %p")
         history.append({"role": "user", "content": message, "time": now})
-        history.append({"role": "ai",   "content": reply,   "time": now})
-        request.session[key] = history[-20:]
+        history.append({"role": "ai", "content": reply, "time": now, "sources": sources})
+        request.session[key] = history[-30:]  # Keep last 30 messages
         request.session.modified = True
 
-    return JsonResponse({"reply": reply})
+    return JsonResponse({"reply": reply, "sources": sources})
 
 
 @csrf_exempt

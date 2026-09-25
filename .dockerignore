@@ -1,0 +1,49 @@
+# Git
+.git
+.gitignore
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+venv/
+.venv/
+ENV/
+env/
+
+# Django
+*.log
+db.sqlite3
+db.sqlite3-journal
+backend/db.sqlite3
+
+# Media & Uploads
+backend/media/
+output/
+*.pdf
+*.docx
+
+# Environment
+.env
+.env.*
+*.env
+
+# IDE
+.vscode/
+.idea/
+*.swp
+
+# Tests
+.pytest_cache/
+htmlcov/
+.coverage
+
+# Documentation
+*.md
+!README.md
+
+# Node (if added later)
+node_modules/
+.next/

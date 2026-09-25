@@ -28,6 +28,7 @@ urlpatterns = [
     path("cases/<int:case_id>/drafts/",      views.case_drafts,      name="case_drafts"),
 
     # ── AJAX endpoints ────────────────────────────────────────────────────
+    path("api/clear-chat/",           views.api_clear_chat,       name="api_clear_chat"),
     path("api/chat/",                 views.api_chat,             name="api_chat"),
     path("api/save-draft/",           views.api_save_draft,       name="api_save_draft"),
     path("api/generate-draft/",       views.api_generate_draft,   name="api_generate_draft"),

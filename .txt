@@ -1,0 +1,63 @@
+# LegalAI — Bug Fixes & Reliability Improvements
+
+I've reviewed AI-generated outputs across the Treatment Summary, Medical Timeline, Precedent Finder, Missing Documents Checker, and Draft Editor modules for Case #14 (MACT case, Sanjay Kadam). Please investigate and fix the following issues, in priority order.
+
+---
+
+## PRIORITY 1 — Correctness bugs (data integrity)
+
+### 1.1 Date bug in generated Legal Notice / Draft Editor
+The generated Legal Notice states the accident occurred on "21-08-2026 (arising from the medico-legal incident on 14-Feb-2026)" — it appears the LLM inserted **today's date** as the incident date instead of extracting the actual accident date (14-Feb-2026) from the source MLC record.
+
+**Fix needed:**
+- Find wherever the draft-generation prompt builds the Legal Notice / Claim Petition and ensure it extracts the incident date **only** from structured case data (the MLC/discharge summary date fields), never lets the model default to `datetime.now()` or the current session date for factual content.
+- Add a **post-generation validation pass**: parse all dates in a generated draft and cross-check them against the canonical case dates stored in the case record (admission date, incident date, discharge date). Flag/reject drafts where an inconsistency is found (e.g., two different dates given for the same event).
+- Surface this validation result in the Draft Editor UI (e.g., a "Date Consistency ✓/✗" badge) before allowing Export.
+
+### 1.2 Duplicate/near-duplicate timeline entries
+The Medical Timeline shows two nearly identical entries both dated 2026-02-14 for the same hospital admission event (one from a slightly different chunk of the source text).
+
+**Fix needed:**
+- Add deduplication logic when building the timeline: if two extracted events share the same date, hospital, and doctor with high text-similarity, merge them into a single entry rather than displaying both.
+- Consider deduplicating at the ingestion/chunking level (e.g., via embedding similarity threshold) rather than only at render time.
+
+### 1.3 Missing Documents Checker not reflecting uploaded documents
+Case #14 has an uploaded Discharge Summary (parsed and used elsewhere in the app), yet the Missing Documents Checker shows **0 Received / 17 Total** — it doesn't seem to auto-detect that a Discharge Summary, and likely an MLC certificate, have already been provided.
+
+**Fix needed:**
+- Audit the document-classification pipeline: when a document is uploaded and classified (e.g., as "Hospital Discharge Summary" or "MLC Certificate"), it should automatically flip the corresponding checklist item to "Received," not require manual toggling.
+- If auto-classification isn't implemented yet, that's the root cause — implement a classifier (rule-based on filename/keywords is a fine first pass, e.g., detect "MLC No." or "Discharge Summary" in extracted text) that maps uploaded docs to checklist categories.
+- Add a test case: upload a known discharge summary → assert the corresponding checklist item flips to Received automatically.
+
+---
+
+## PRIORITY 2 — Reliability / trust layer for legal content
+
+### 2.1 Precedent Finder can output unverified/potentially hallucinated case citations
+The Precedent Finder generates specific case names, SCC citation numbers, and compensation figures (e.g., "Master Mallikarjuna v. Divisional Manager, (2014) 14 SCC 396") purely from the LLM, with no verification against a real case-law database. LLM-generated legal citations are known to sometimes be fabricated or misattributed even when they look plausible — this is a serious risk if a fabricated citation ends up in a filed court document.
+
+**Fix needed (in order of preference):**
+1. **Best:** Integrate a real case-law lookup (Indian Kanoon API, SCC Online API, or a bundled/licensed case-law corpus) so precedents are *retrieved*, not generated from parametric knowledge. Have the LLM summarize/apply retrieved real cases rather than invent citations from scratch.
+2. **If (1) isn't feasible immediately:** Add a citation-verification step — after the LLM generates citations, run each one through a lookup query (e.g., search Indian Kanoon by case name + citation) and tag each citation in the UI as `✓ Verified` / `⚠ Unverified — confirm manually` / `✗ Not found`.
+3. **At minimum:** Add a persistent, non-dismissible UI disclaimer on the Precedent Finder output: "AI-generated legal research — verify all citations against SCC Online / Indian Kanoon / Manupatra before use in any filing." This should be more prominent than the current inline hedge text buried in the response.
+- Do NOT allow the "Use in Draft" button to insert unverified citations directly into a court-filing-ready draft without this disclaimer traveling with the text.
+
+### 2.2 Compensation range estimates should be labeled as AI estimates, not computed figures
+The compensation range (₹5,00,000–₹7,50,000) is LLM-generated prose reasoning, not a computed value derived from a structured formula (multiplier × income × disability %, etc. per Sarla Verma framework).
+
+**Fix needed:**
+- Label these ranges clearly in the UI as "AI-Suggested Estimate — not a computed valuation."
+- Longer-term: consider implementing the actual Sarla Verma multiplier table and structured non-pecuniary heads as a deterministic calculator, with the LLM only providing narrative justification around a real computed number — this would make the compensation figure far more defensible in practice.
+
+---
+
+## PRIORITY 3 — Polish / smaller fixes
+
+- **Draft Editor placeholder cleanup:** Generated drafts still contain unfilled placeholders (Vehicle No.: N/A, FIR No.: N/A, Advocate Enrollment No.: ____). Add a pre-export checklist that flags all remaining blanks/`N/A` fields so the advocate doesn't miss one before filing.
+- **Consistent case-fact reuse:** Confirm that all modules (Timeline, Treatment Summary, Legal Notice, AI Report) pull from a single canonical case-fact store rather than re-extracting from raw text independently in each module — this would prevent drift like the date bug above from happening in only one module.
+- **Audit log for AI-generated content:** For any AI-generated legal content (drafts, precedent lists, compensation estimates), store which model/version generated it and when, so if a citation is later found to be wrong, you can trace which cases might be affected.
+
+---
+
+## Suggested approach
+Please start with 1.1–1.3 since those are functional bugs affecting correctness of what's already built. Then tackle 2.1 as the highest-impact reliability fix given this tool's use in real legal filings. Let me know if you want to see the actual document-classification code or draft-generation prompts first so we can pinpoint exact fixes rather than guessing at the implementation.

@@ -1,44 +1,313 @@
 {% extends "base.html" %}
-{% block title %}AI Answer — LegalAI{% endblock %}
+{% block title %}Legal AI Chat — LegalAI{% endblock %}
+{% block extra_head %}
+<style>
+.chat-container { max-height: calc(100vh - 280px); }
+.question-bubble { background: linear-gradient(135deg, #7B2C2C 0%, #6a2424 100%); }
+.answer-bubble { background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%); border: 1px solid #e2e8f0; }
+.input-area { background: white; border: 2px solid #e8e0d8; transition: all 0.2s; }
+.input-area:focus-within { border-color: #C86F6F; box-shadow: 0 0 0 4px rgba(200,111,111,0.1); }
+</style>
+{% endblock %}
 {% block body %}
 <nav class="fixed top-0 left-0 right-0 z-40 bg-white border-b border-gray-100 h-14 flex items-center px-6">
     <a href="/dashboard/" class="flex items-center gap-2 nav-logo font-bold text-lg">
-        <div class="w-8 h-8 bg-primary rounded-lg flex items-center justify-center"><svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 6l3 1m0 0l-3 9a5.002 5.002 0 006.001 0M6 7l3 9M6 7l6-2m6 2l3-1m-3 1l-3 9a5.002 5.002 0 006.001 0M18 7l3 9m-3-9l-6-2m0-2v2m0 16V5m0 16H9m3 0h3"/></svg></div>
+        <div class="w-8 h-8 bg-primary rounded-lg flex items-center justify-center">
+            <svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 6l3 1m0 0l-3 9a5.002 5.002 0 006.001 0M6 7l3 9M6 7l6-2m6 2l3-1m-3 1l-3 9a5.002 5.002 0 006.001 0M18 7l3 9m-3-9l-6-2m0-2v2m0 16V5m0 16H9m3 0h3"/>
+            </svg>
+        </div>
         LegalAI
     </a>
-    <a href="/dashboard/" class="ml-auto text-sm text-gray-500 hover:text-primary transition-colors flex items-center gap-1.5"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"/></svg>Back to Dashboard</a>
+    <div class="ml-auto flex items-center gap-3">
+        <button onclick="clearChat()" class="text-sm text-gray-500 hover:text-primary transition-colors flex items-center gap-1.5">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+            </svg>
+            Clear Chat
+        </button>
+        <a href="/dashboard/" class="text-sm text-gray-500 hover:text-primary transition-colors flex items-center gap-1.5">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"/>
+            </svg>
+            Back to Dashboard
+        </a>
+    </div>
 </nav>
-<div class="pt-14 min-h-screen px-6 py-10">
-    <div class="max-w-3xl mx-auto">
-        {% if question %}
-        <div class="bg-white rounded-2xl shadow-card section-card p-6 mb-5 fade-in">
-            <div class="flex items-start gap-3">
-                <div class="w-8 h-8 rounded-full bg-primary flex items-center justify-center flex-shrink-0 mt-0.5"><span class="text-white text-xs font-semibold">A</span></div>
-                <div><p class="text-xs text-gray-400 mb-1">Your question</p><p class="text-sm font-medium text-gray-800">{{ question }}</p></div>
+
+<div class="pt-14 min-h-screen bg-gradient-to-b from-gray-50 to-white">
+    <div class="max-w-4xl mx-auto px-6 py-8">
+        
+        <!-- Chat Header -->
+        <div class="mb-6 text-center">
+            <div class="inline-flex items-center gap-2 bg-primary/10 px-4 py-2 rounded-full mb-3">
+                <div class="w-2 h-2 rounded-full bg-green-500 animate-pulse"></div>
+                <span class="text-xs font-semibold text-primary">AI Legal Assistant Active</span>
             </div>
+            <h1 class="text-2xl font-bold text-gray-800">Legal AI Chat</h1>
+            <p class="text-sm text-gray-500 mt-1">Ask follow-up questions and have natural conversations</p>
         </div>
-        <div class="bg-white rounded-2xl shadow-card section-card p-6 fade-in">
-            <div class="flex items-start gap-3 mb-4">
-                <div class="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0"><svg class="w-4 h-4 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/></svg></div>
-                <div><p class="text-xs text-gray-400 mb-1">LegalAI Answer</p><p class="text-xs text-primary font-medium">Powered by Gemini 2.5 Flash</p></div>
-            </div>
-            <div id="answer-text" class="text-sm text-gray-700 leading-7 whitespace-pre-wrap">{{ answer }}</div>
-            <div class="flex gap-3 mt-5 pt-4 border-t border-gray-50">
-                <button onclick="copyAnswer()" class="text-sm border border-gray-200 text-gray-600 px-4 py-2 rounded-xl hover:bg-gray-50 transition-colors flex items-center gap-2"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>Copy</button>
-                <a href="/draft-editor/" class="btn-primary text-sm px-4 py-2 rounded-xl flex items-center gap-2"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>Use in Draft</a>
-            </div>
+
+        <!-- Conversation Thread -->
+        <div id="chat-thread" class="chat-container overflow-y-auto scrollbar-thin space-y-4 mb-6">
+            
+            {% if conversation_history %}
+                {% for msg in conversation_history %}
+                    {% if msg.role == 'user' %}
+                    <!-- User Message -->
+                    <div class="flex justify-end fade-in">
+                        <div class="max-w-2xl">
+                            <div class="question-bubble text-white rounded-2xl rounded-tr-sm px-5 py-3.5 shadow-md">
+                                <p class="text-sm leading-relaxed">{{ msg.content }}</p>
+                            </div>
+                            <p class="text-xs text-gray-400 mt-1.5 text-right">You</p>
+                        </div>
+                    </div>
+                    {% else %}
+                    <!-- AI Response -->
+                    <div class="flex justify-start fade-in">
+                        <div class="max-w-2xl">
+                            <div class="answer-bubble rounded-2xl rounded-tl-sm px-5 py-4 shadow-sm">
+                                <div class="flex items-center gap-2 mb-2">
+                                    <svg class="w-4 h-4 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/>
+                                    </svg>
+                                    <span class="text-xs font-semibold text-primary">Legal AI</span>
+                                </div>
+                                <div class="text-sm text-gray-800 leading-7 prose prose-sm max-w-none" id="ai-response-content">
+                                    {{ msg.content|safe }}
+                                </div>
+                            </div>
+                            <p class="text-xs text-gray-400 mt-1.5 ml-1">Gemini 2.0 Flash</p>
+                        </div>
+                    </div>
+                    {% endif %}
+                {% endfor %}
+            {% else %}
+                <!-- First Message -->
+                {% if question %}
+                <div class="flex justify-end fade-in">
+                    <div class="max-w-2xl">
+                        <div class="question-bubble text-white rounded-2xl rounded-tr-sm px-5 py-3.5 shadow-md">
+                            <p class="text-sm leading-relaxed">{{ question }}</p>
+                        </div>
+                        <p class="text-xs text-gray-400 mt-1.5 text-right">You</p>
+                    </div>
+                </div>
+                
+                <div class="flex justify-start fade-in">
+                    <div class="max-w-2xl">
+                        <div class="answer-bubble rounded-2xl rounded-tl-sm px-5 py-4 shadow-sm">
+                            <div class="flex items-center gap-2 mb-2">
+                                <svg class="w-4 h-4 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/>
+                                </svg>
+                                <span class="text-xs font-semibold text-primary">Legal AI</span>
+                            </div>
+                            <div class="text-sm text-gray-800 leading-7 prose prose-sm max-w-none" id="ai-response-content">
+                                {{ answer|safe }}
+                            </div>
+                        </div>
+                        <div class="flex items-center gap-2 mt-2 ml-1">
+                            <p class="text-xs text-gray-400">Gemini 2.5 Flash</p>
+                            <button onclick="copyText(`{{ answer|escapejs }}`)" class="text-xs text-gray-400 hover:text-primary transition-colors flex items-center gap-1">
+                                <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/>
+                                </svg>
+                                Copy
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                {% endif %}
+            {% endif %}
         </div>
-        {% else %}
-        <div class="text-center py-20"><p class="text-gray-400">No question asked yet.</p><a href="/dashboard/" class="btn-primary text-sm px-6 py-2.5 rounded-xl mt-4 inline-block">Go to Dashboard</a></div>
-        {% endif %}
+
+        <!-- Input Area -->
+        <div class="sticky bottom-6">
+            <form action="/ask/" method="POST" id="chat-form">
+                {% csrf_token %}
+                <div class="input-area rounded-2xl px-5 py-4 flex items-end gap-3 shadow-lg">
+                    <div class="w-9 h-9 bg-primary/10 rounded-xl flex items-center justify-center flex-shrink-0 mb-1">
+                        <svg class="w-4 h-4 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z"/>
+                        </svg>
+                    </div>
+                    <textarea 
+                        name="question" 
+                        id="question-input"
+                        placeholder="Ask a follow-up question or start a new topic..."
+                        class="flex-1 bg-transparent text-sm text-gray-700 placeholder-gray-400 border-none focus:outline-none resize-none scrollbar-thin max-h-32"
+                        rows="1"
+                        onkeydown="if(event.key==='Enter' && !event.shiftKey) { event.preventDefault(); document.getElementById('chat-form').submit(); }"
+                        oninput="this.style.height='auto'; this.style.height=this.scrollHeight+'px'"
+                    ></textarea>
+                    <button type="submit" class="btn-primary px-5 py-2.5 rounded-xl flex items-center gap-2 text-sm font-medium shadow-md hover:shadow-lg transition-all flex-shrink-0">
+                        Send
+                        <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                            <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/>
+                        </svg>
+                    </button>
+                </div>
+            </form>
+            <p class="text-center text-xs text-gray-400 mt-2">Press Shift+Enter for new line • Gemini 2.5 Flash</p>
+        </div>
+
     </div>
 </div>
+
 {% endblock %}
 {% block extra_scripts %}
 <script>
-function copyAnswer() {
-    var el = document.getElementById('answer-text');
-    if (el) navigator.clipboard.writeText(el.textContent).then(function() { showToast('Copied to clipboard!'); });
+// Auto-scroll to bottom on page load
+window.addEventListener('load', function() {
+    var thread = document.getElementById('chat-thread');
+    if (thread) {
+        thread.scrollTop = thread.scrollHeight;
+    }
+    // Focus input
+    document.getElementById('question-input').focus();
+    
+    // Format all AI responses
+    formatAllAIResponses();
+});
+
+function formatAllAIResponses() {
+    var responseElements = document.querySelectorAll('#ai-response-content');
+    responseElements.forEach(function(element) {
+        var rawText = element.textContent || element.innerText;
+        var formattedHTML = formatAIResponse(rawText);
+        element.innerHTML = formattedHTML;
+    });
+}
+
+function formatAIResponse(text) {
+    // This function converts plain text AI response into beautifully structured HTML
+    
+    var html = '';
+    var lines = text.split('\n');
+    var inList = false;
+    var inNumberedList = false;
+    
+    for (var i = 0; i < lines.length; i++) {
+        var line = lines[i].trim();
+        
+        if (!line) {
+            // Close any open lists
+            if (inList) {
+                html += '</ul>';
+                inList = false;
+            }
+            if (inNumberedList) {
+                html += '</ol>';
+                inNumberedList = false;
+            }
+            html += '<div class="h-3"></div>'; // Spacing
+            continue;
+        }
+        
+        // Detect markdown heading (## or **HEADING**)
+        if (line.startsWith('##')) {
+            if (inList) html += '</ul>';
+            if (inNumberedList) html += '</ol>';
+            inList = false;
+            inNumberedList = false;
+            var heading = line.replace(/^##\s*/, '').replace(/\*\*/g, '');
+            html += '<h2 class="text-lg font-bold text-gray-900 mt-4 mb-2">' + escapeHtml(heading) + '</h2>';
+        }
+        // Detect numbered list (1. or 1))
+        else if (/^\d+[\.\)]\s/.test(line)) {
+            if (inList) {
+                html += '</ul>';
+                inList = false;
+            }
+            if (!inNumberedList) {
+                html += '<ol class="list-decimal list-inside space-y-2 ml-2">';
+                inNumberedList = true;
+            }
+            var content = line.replace(/^\d+[\.\)]\s*/, '');
+            content = formatInlineMarkdown(content);
+            html += '<li class="text-gray-800">' + content + '</li>';
+        }
+        // Detect bullet point (- or * or •)
+        else if (/^[\-\*\•]\s/.test(line)) {
+            if (inNumberedList) {
+                html += '</ol>';
+                inNumberedList = false;
+            }
+            if (!inList) {
+                html += '<ul class="list-disc list-inside space-y-1.5 ml-4">';
+                inList = true;
+            }
+            var content = line.replace(/^[\-\*\•]\s*/, '');
+            content = formatInlineMarkdown(content);
+            html += '<li class="text-gray-700">' + content + '</li>';
+        }
+        // Detect bold section heading (**Text:**)
+        else if (/^\*\*[^*]+\*\*:?/.test(line)) {
+            if (inList) html += '</ul>';
+            if (inNumberedList) html += '</ol>';
+            inList = false;
+            inNumberedList = false;
+            var heading = line.replace(/\*\*/g, '');
+            html += '<h3 class="text-base font-semibold text-gray-900 mt-3 mb-1.5">' + escapeHtml(heading) + '</h3>';
+        }
+        // Regular paragraph
+        else {
+            if (inList) html += '</ul>';
+            if (inNumberedList) html += '</ol>';
+            inList = false;
+            inNumberedList = false;
+            var formatted = formatInlineMarkdown(line);
+            html += '<p class="text-gray-800 leading-relaxed mb-2">' + formatted + '</p>';
+        }
+    }
+    
+    // Close any remaining open lists
+    if (inList) html += '</ul>';
+    if (inNumberedList) html += '</ol>';
+    
+    return html;
+}
+
+function formatInlineMarkdown(text) {
+    // Format bold **text**
+    text = text.replace(/\*\*(.+?)\*\*/g, '<strong class="font-semibold text-gray-900">$1</strong>');
+    
+    // Format italic *text*
+    text = text.replace(/\*(.+?)\*/g, '<em class="italic">$1</em>');
+    
+    // Format inline code `code`
+    text = text.replace(/`(.+?)`/g, '<code class="bg-gray-100 px-1.5 py-0.5 rounded text-sm font-mono">$1</code>');
+    
+    // Format rupee amounts
+    text = text.replace(/₹\s?([\d,]+)/g, '<span class="font-semibold text-green-700">₹$1</span>');
+    
+    // Escape HTML but preserve our formatted tags
+    return text;
+}
+
+function escapeHtml(text) {
+    var div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+
+function copyText(text) {
+    navigator.clipboard.writeText(text).then(function() {
+        showToast('Copied to clipboard!');
+    });
+}
+
+function clearChat() {
+    if (confirm('Clear entire conversation history? This cannot be undone.')) {
+        fetch('/api/clear-chat/', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+        }).then(function() {
+            window.location.href = '/dashboard/';
+        });
+    }
 }
 </script>
 {% endblock %}

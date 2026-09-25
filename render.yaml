@@ -1,0 +1,21 @@
+services:
+  - type: web
+    name: legalai
+    env: python
+    region: singapore
+    plan: starter
+    buildCommand: "./build.sh"
+    startCommand: "cd backend && gunicorn legalai.wsgi:application"
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.0
+      - key: DATABASE_URL
+        sync: false
+      - key: SECRET_KEY
+        generateValue: true
+      - key: DJANGO_SETTINGS_MODULE
+        value: legalai.settings_prod
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: ALLOWED_HOSTS
+        sync: false

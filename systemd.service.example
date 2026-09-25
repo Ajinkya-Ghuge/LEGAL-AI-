@@ -1,0 +1,40 @@
+# Systemd Service File for LegalAI
+# Place this in: /etc/systemd/system/legalai.service
+# Enable: sudo systemctl enable legalai
+# Start: sudo systemctl start legalai
+# Status: sudo systemctl status legalai
+# Logs: sudo journalctl -u legalai -f
+
+[Unit]
+Description=LegalAI Django Application
+After=network.target postgresql.service redis.service
+
+[Service]
+Type=notify
+User=www-data
+Group=www-data
+WorkingDirectory=/var/www/legalai/backend
+Environment="PATH=/var/www/legalai/venv/bin"
+Environment="DJANGO_SETTINGS_MODULE=legalai.settings_prod"
+
+# Load environment variables
+EnvironmentFile=/var/www/legalai/.env
+
+# Gunicorn command
+ExecStart=/var/www/legalai/venv/bin/gunicorn \
+    --config /var/www/legalai/gunicorn.conf.py \
+    --chdir /var/www/legalai/backend \
+    legalai.wsgi:application
+
+# Restart policy
+Restart=on-failure
+RestartSec=5s
+KillMode=mixed
+TimeoutStopSec=30
+
+# Security
+NoNewPrivileges=true
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target

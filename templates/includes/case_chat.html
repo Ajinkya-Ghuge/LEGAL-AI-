@@ -1,56 +1,184 @@
-<!-- Shared AI Chat Panel — right side -->
-<aside class="w-80 bg-white border-l border-gray-100 flex flex-col flex-shrink-0">
-    <div class="h-14 flex items-center justify-between px-4 border-b border-gray-100 flex-shrink-0">
-        <div class="flex items-center gap-2">
-            <div class="w-2 h-2 rounded-full bg-green-400"></div>
-            <span class="text-sm font-semibold text-gray-800">AI Assistant</span>
-        </div>
-        <span class="text-xs text-gray-400">{{ case.case_no }}</span>
-    </div>
-    <div id="chat-messages" class="flex-1 overflow-y-auto scrollbar-thin p-4 space-y-4">
-        <div class="fade-in">
-            <div class="chat-bubble-ai rounded-2xl rounded-tl-sm p-3.5 max-w-[90%]">
-                <p class="text-sm text-gray-700 leading-relaxed">Hello! I've analyzed <strong>{{ case.case_no }}</strong>. Ask me anything about this case.</p>
+<!-- Context-Aware AI Chat Panel — RIGHT SIDE -->
+<aside class="w-96 bg-white border-l border-gray-100 flex flex-col flex-shrink-0 shadow-lg">
+    <!-- Header -->
+    <div class="h-16 flex items-center justify-between px-5 border-b border-gray-100 bg-gradient-to-r from-primary/5 to-purple-50 flex-shrink-0">
+        <div class="flex items-center gap-3">
+            <div class="w-10 h-10 bg-gradient-to-br from-primary to-purple-600 rounded-xl flex items-center justify-center shadow-md">
+                <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/>
+                </svg>
             </div>
-            <p class="text-xs text-gray-400 mt-1 ml-1">LegalAI Assistant</p>
+            <div>
+                <div class="flex items-center gap-2">
+                    <span class="text-sm font-bold text-gray-800">Legal AI Assistant</span>
+                    <div class="w-2 h-2 rounded-full bg-green-400 animate-pulse"></div>
+                </div>
+                <p class="text-xs text-gray-500">Context-aware · Gemini 2.5</p>
+            </div>
         </div>
+        <button onclick="clearChat()" class="text-gray-400 hover:text-gray-600 transition-colors" title="Clear chat">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+            </svg>
+        </button>
+    </div>
+
+    <!-- Chat Messages -->
+    <div id="chat-messages" class="flex-1 overflow-y-auto scrollbar-thin px-4 py-5 space-y-5 bg-gradient-to-b from-gray-50/30 to-white">
+        <!-- Welcome message -->
+        <div class="fade-in">
+            <div class="chat-bubble-ai rounded-2xl rounded-tl-sm p-4 max-w-[85%] bg-gradient-to-br from-blue-50 to-purple-50 border border-blue-100">
+                <p class="text-sm text-gray-800 leading-relaxed mb-2">
+                    👋 Hello! I'm your Legal AI Assistant for <strong>{{ case.case_no }}</strong>.
+                </p>
+                <p class="text-xs text-gray-600 leading-relaxed">
+                    I have analyzed all case documents, medical timeline, and legal precedents. 
+                    Ask me anything specific:
+                </p>
+                <div class="mt-3 space-y-1.5">
+                    <button onclick="askSuggestion('What are the total injuries sustained?')" 
+                            class="block w-full text-left text-xs bg-white/80 hover:bg-white border border-blue-200 rounded-lg px-3 py-2 text-gray-700 hover:text-primary transition-all hover:border-primary/50">
+                        💉 What are the total injuries sustained?
+                    </button>
+                    <button onclick="askSuggestion('Calculate compensation under Section 166')" 
+                            class="block w-full text-left text-xs bg-white/80 hover:bg-white border border-blue-200 rounded-lg px-3 py-2 text-gray-700 hover:text-primary transition-all hover:border-primary/50">
+                        💰 Calculate compensation under Section 166
+                    </button>
+                    <button onclick="askSuggestion('What documents are missing for filing?')" 
+                            class="block w-full text-left text-xs bg-white/80 hover:bg-white border border-blue-200 rounded-lg px-3 py-2 text-gray-700 hover:text-primary transition-all hover:border-primary/50">
+                        📄 What documents are missing?
+                    </button>
+                </div>
+            </div>
+            <p class="text-xs text-gray-400 mt-1.5 ml-1 flex items-center gap-1">
+                <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd"/></svg>
+                LegalAI Assistant
+            </p>
+        </div>
+
+        <!-- Typing indicator -->
         <div id="typing-indicator" class="hidden fade-in">
-            <div class="chat-bubble-ai rounded-2xl rounded-tl-sm p-3.5 inline-block">
-                <div class="flex gap-1">
-                    <div class="w-1.5 h-1.5 rounded-full bg-gray-400 typing-dot"></div>
-                    <div class="w-1.5 h-1.5 rounded-full bg-gray-400 typing-dot"></div>
-                    <div class="w-1.5 h-1.5 rounded-full bg-gray-400 typing-dot"></div>
+            <div class="chat-bubble-ai rounded-2xl rounded-tl-sm p-4 inline-block bg-gray-50 border border-gray-100">
+                <div class="flex items-center gap-2">
+                    <div class="flex gap-1">
+                        <div class="w-2 h-2 rounded-full bg-gray-400 typing-dot"></div>
+                        <div class="w-2 h-2 rounded-full bg-gray-400 typing-dot" style="animation-delay: 0.2s"></div>
+                        <div class="w-2 h-2 rounded-full bg-gray-400 typing-dot" style="animation-delay: 0.4s"></div>
+                    </div>
+                    <span class="text-xs text-gray-500">Analyzing case data...</span>
                 </div>
             </div>
         </div>
     </div>
-    <div class="border-t border-gray-100 p-3 flex-shrink-0">
-        <div class="flex items-center gap-2 bg-bg rounded-xl border border-gray-200 px-3 py-2.5">
-            <input id="chat-input" type="text" placeholder="Ask about this case..."
-                class="flex-1 bg-transparent text-xs text-gray-700 placeholder-gray-400 border-none focus:outline-none"
-                onkeydown="if(event.key==='Enter') sendChat()">
-            <button onclick="sendChat()" class="text-gray-400 hover:text-primary transition-colors">
-                <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg>
+
+    <!-- Input Area -->
+    <div class="border-t border-gray-100 p-4 bg-gray-50/50 flex-shrink-0">
+        <div class="flex items-end gap-2">
+            <div class="flex-1 bg-white rounded-xl border-2 border-gray-200 focus-within:border-primary/50 transition-colors shadow-sm">
+                <textarea 
+                    id="chat-input" 
+                    placeholder="Ask about injuries, compensation, timeline, documents..." 
+                    class="w-full bg-transparent text-sm text-gray-700 placeholder-gray-400 border-none focus:outline-none px-4 py-3 resize-none scrollbar-thin max-h-32"
+                    rows="1"
+                    onkeydown="if(event.key==='Enter' && !event.shiftKey) { event.preventDefault(); sendChat(); }"
+                    oninput="this.style.height='auto'; this.style.height=this.scrollHeight+'px'"></textarea>
+            </div>
+            <button 
+                onclick="sendChat()" 
+                id="send-btn"
+                class="bg-gradient-to-r from-primary to-purple-600 hover:from-primary/90 hover:to-purple-600/90 text-white p-3.5 rounded-xl transition-all shadow-md hover:shadow-lg flex-shrink-0 disabled:opacity-50 disabled:cursor-not-allowed">
+                <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/>
+                </svg>
             </button>
         </div>
-        <p class="text-center text-xs text-gray-300 mt-2">Powered by LegalAI · Gemini 2.5 Flash</p>
+        <div class="flex items-center justify-between mt-3 px-1">
+            <p class="text-xs text-gray-400 flex items-center gap-1">
+                <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd"/></svg>
+                Case #{{ case.id }}
+            </p>
+            <p class="text-xs text-gray-400">Shift+Enter for new line</p>
+        </div>
     </div>
 </aside>
 
+<style>
+.chat-bubble-ai {
+    background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+    border: 1px solid #e2e8f0;
+}
+.chat-bubble-user {
+    background: linear-gradient(135deg, #7B2C2C 0%, #6a2424 100%);
+    color: white;
+}
+.typing-dot {
+    animation: typing 1.4s infinite;
+}
+@keyframes typing {
+    0%, 60%, 100% { transform: translateY(0); opacity: 0.4; }
+    30% { transform: translateY(-10px); opacity: 1; }
+}
+.fade-in {
+    animation: fadeIn 0.3s ease-in;
+}
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+</style>
+
 <script>
 var CASE_ID = '{{ case.id }}';
+var chatInProgress = false;
+
+function askSuggestion(question) {
+    document.getElementById('chat-input').value = question;
+    sendChat();
+}
+
+function clearChat() {
+    if (confirm('Clear chat history?')) {
+        document.getElementById('chat-messages').innerHTML = `
+            <div class="fade-in">
+                <div class="chat-bubble-ai rounded-2xl rounded-tl-sm p-4 max-w-[85%] bg-gradient-to-br from-blue-50 to-purple-50 border border-blue-100">
+                    <p class="text-sm text-gray-700 leading-relaxed">Chat cleared. Ask me anything about Case {{ case.case_no }}.</p>
+                </div>
+            </div>
+        `;
+    }
+}
+
 async function sendChat() {
-    var input = document.getElementById('chat-input'), msg = input.value.trim();
+    if (chatInProgress) return;
+    
+    var input = document.getElementById('chat-input');
+    var msg = input.value.trim();
     if (!msg) return;
-    var container = document.getElementById('chat-messages'), typing = document.getElementById('typing-indicator');
+    
+    chatInProgress = true;
+    var sendBtn = document.getElementById('send-btn');
+    sendBtn.disabled = true;
+    
+    var container = document.getElementById('chat-messages');
+    var typing = document.getElementById('typing-indicator');
     var now = new Date().toLocaleTimeString('en-US', {hour:'2-digit', minute:'2-digit'});
+    
+    // Add user message
     container.insertAdjacentHTML('beforeend',
-        '<div class="fade-in flex justify-end"><div>' +
-        '<div class="chat-bubble-user rounded-2xl rounded-tr-sm p-3.5 max-w-[90%] ml-auto"><p class="text-sm leading-relaxed">' + msg + '</p></div>' +
-        '<p class="text-xs text-gray-400 mt-1 text-right mr-1">You · ' + now + '</p>' +
+        '<div class="fade-in flex justify-end">' +
+        '<div class="max-w-[85%]">' +
+        '<div class="chat-bubble-user rounded-2xl rounded-tr-sm p-4 ml-auto shadow-md">' +
+        '<p class="text-sm leading-relaxed">' + escapeHtml(msg) + '</p>' +
+        '</div>' +
+        '<p class="text-xs text-gray-400 mt-1.5 text-right mr-1">You · ' + now + '</p>' +
         '</div></div>'
     );
-    input.value = ''; typing.classList.remove('hidden'); container.scrollTop = container.scrollHeight;
+    
+    input.value = '';
+    input.style.height = 'auto';
+    typing.classList.remove('hidden');
+    container.scrollTop = container.scrollHeight;
+    
     try {
         var res = await fetch('/api/chat/', {
             method: 'POST',
@@ -59,17 +187,58 @@ async function sendChat() {
         });
         var data = await res.json();
         typing.classList.add('hidden');
+        
         var rt = new Date().toLocaleTimeString('en-US', {hour:'2-digit', minute:'2-digit'});
+        var replyHtml = formatMarkdown(data.reply);
+        
+        // Add AI response with sources
+        var sourcesHtml = '';
+        if (data.sources && data.sources.length > 0) {
+            sourcesHtml = '<div class="mt-2 pt-2 border-t border-gray-200">' +
+                '<p class="text-xs text-gray-500 flex items-center gap-1">' +
+                '<svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20"><path d="M9 2a2 2 0 00-2 2v8a2 2 0 002 2h6a2 2 0 002-2V6.414A2 2 0 0016.414 5L14 2.586A2 2 0 0012.586 2H9z"/><path d="M3 8a2 2 0 012-2v10h8a2 2 0 01-2 2H5a2 2 0 01-2-2V8z"/></svg>' +
+                'Sources: ' + data.sources.join(', ') +
+                '</p></div>';
+        }
+        
         container.insertAdjacentHTML('beforeend',
-            '<div class="fade-in">' +
-            '<div class="chat-bubble-ai rounded-2xl rounded-tl-sm p-3.5 max-w-[90%]"><p class="text-sm text-gray-700 leading-relaxed">' + data.reply + '</p></div>' +
-            '<p class="text-xs text-gray-400 mt-1 ml-1">LegalAI · ' + rt + '</p>' +
-            '</div>'
+            '<div class="fade-in max-w-[90%]">' +
+            '<div class="chat-bubble-ai rounded-2xl rounded-tl-sm p-4 shadow-sm">' +
+            '<div class="text-sm text-gray-800 leading-relaxed prose prose-sm max-w-none">' + replyHtml + '</div>' +
+            sourcesHtml +
+            '</div>' +
+            '<p class="text-xs text-gray-400 mt-1.5 ml-1 flex items-center gap-1">' +
+            '<svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd"/></svg>' +
+            'LegalAI · ' + rt +
+            '</p></div>'
         );
     } catch(e) {
         typing.classList.add('hidden');
-        showToast('Chat error', 'error');
+        container.insertAdjacentHTML('beforeend',
+            '<div class="fade-in max-w-[85%]">' +
+            '<div class="chat-bubble-ai rounded-2xl rounded-tl-sm p-4 bg-red-50 border-red-200">' +
+            '<p class="text-sm text-red-700">Error: ' + e.message + '</p>' +
+            '</div></div>'
+        );
     }
+    
     container.scrollTop = container.scrollHeight;
+    chatInProgress = false;
+    sendBtn.disabled = false;
+}
+
+function escapeHtml(text) {
+    var div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+
+function formatMarkdown(text) {
+    // Basic markdown formatting
+    text = text.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+    text = text.replace(/\*(.*?)\*/g, '<em>$1</em>');
+    text = text.replace(/\n/g, '<br>');
+    text = text.replace(/₹ ?([\d,]+)/g, '<span class="font-semibold text-green-700">₹ $1</span>');
+    return text;
 }
 </script>

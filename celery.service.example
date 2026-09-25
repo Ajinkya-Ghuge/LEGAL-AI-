@@ -1,0 +1,26 @@
+# Systemd Service for Celery Worker
+# Place this in: /etc/systemd/system/celery.service
+
+[Unit]
+Description=LegalAI Celery Worker
+After=network.target redis.service
+
+[Service]
+Type=forking
+User=www-data
+Group=www-data
+WorkingDirectory=/var/www/legalai/backend
+Environment="PATH=/var/www/legalai/venv/bin"
+Environment="DJANGO_SETTINGS_MODULE=legalai.settings_prod"
+EnvironmentFile=/var/www/legalai/.env
+
+ExecStart=/var/www/legalai/venv/bin/celery -A legalai worker \
+    --loglevel=info \
+    --pidfile=/var/run/celery/worker.pid \
+    --logfile=/var/log/celery/worker.log
+
+Restart=on-failure
+RestartSec=10s
+
+[Install]
+WantedBy=multi-user.target
