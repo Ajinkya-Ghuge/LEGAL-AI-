@@ -3,9 +3,12 @@ Documents app models.
 Handles uploaded PDFs and their extracted text.
 """
 import os
+import logging
 from django.db import models
 from django.utils import timezone
 from apps.cases.models import Case
+
+logger = logging.getLogger(__name__)
 
 
 def document_upload_path(instance, filename):
@@ -86,9 +89,22 @@ class Document(models.Model):
     
     @property
     def pdf_url(self):
-        """Get PDF URL - prioritize Supabase, fallback to local file"""
-        if self.supabase_url:
-            return self.supabase_url
+        """Get PDF URL - prioritize Supabase signed URL, fallback to local file"""
+        if self.supabase_url and self.supabase_path:
+            # Generate signed URL for private bucket access (valid for 1 hour)
+            from apps.documents.storage import supabase_storage
+            try:
+                signed_url = supabase_storage.get_signed_url(self.supabase_path, expires_in=3600)
+                if signed_url:
+                    return signed_url
+                # Fallback to public URL if signed URL fails
+                return self.supabase_url
+            except Exception as e:
+                logger.error(f"Failed to get signed URL for {self.supabase_path}: {str(e)}")
+                return self.supabase_url
         elif self.file:
-            return self.file.url
+            try:
+                return self.file.url
+            except Exception:
+                return None
         return None
