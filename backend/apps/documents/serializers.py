@@ -9,21 +9,23 @@ class DocumentSerializer(serializers.ModelSerializer):
     """Full document serializer — used for responses."""
     file_size_kb = serializers.ReadOnlyField()
     filename     = serializers.ReadOnlyField()
+    pdf_url      = serializers.ReadOnlyField()  # Use property that returns Supabase or local URL
     case_title   = serializers.SerializerMethodField()
 
     class Meta:
         model  = Document
         fields = [
-            "id", "case", "case_title", "file", "filename",
+            "id", "case", "case_title", "file", "pdf_url", "filename",
             "original_name", "doc_type", "pages",
             "extracted_text", "page_texts",
             "processing_status", "processing_error",
-            "file_size_kb", "uploaded_at",
+            "file_size_kb", "uploaded_at", "supabase_url", "supabase_path",
         ]
         read_only_fields = [
             "id", "pages", "extracted_text", "page_texts",
             "processing_status", "processing_error",
-            "file_size_kb", "filename", "uploaded_at",
+            "file_size_kb", "filename", "uploaded_at", "pdf_url",
+            "supabase_url", "supabase_path",
         ]
 
     def get_case_title(self, obj):

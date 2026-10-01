@@ -64,21 +64,26 @@ document.addEventListener('DOMContentLoaded', function() {
 
         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {% for case in cases %}
-            <a href="/cases/{{ case.id }}/" class="bg-white rounded-2xl shadow-card section-card p-5 block hover:shadow-card-hover transition-all">
-                <div class="flex items-start justify-between mb-3">
-                    <div class="w-10 h-10 bg-primary/10 rounded-xl flex items-center justify-center flex-shrink-0"><svg class="w-5 h-5 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"/></svg></div>
-                    {% if case.status == 'Active' %}<span class="text-xs px-2.5 py-1 rounded-full font-medium bg-green-50 text-green-700">{{ case.status }}</span>
-                    {% elif case.status == 'Pending' %}<span class="text-xs px-2.5 py-1 rounded-full font-medium bg-yellow-50 text-yellow-700">{{ case.status }}</span>
-                    {% else %}<span class="text-xs px-2.5 py-1 rounded-full font-medium bg-gray-100 text-gray-500">{{ case.status }}</span>{% endif %}
-                </div>
-                <h3 class="font-semibold text-gray-800 text-sm mb-1">{{ case.name }}</h3>
-                <p class="text-xs text-primary font-medium mb-2">{{ case.case_no }}</p>
-                <p class="text-xs text-gray-400 mb-3">{{ case.type }} · {{ case.date }}</p>
-                <div class="flex items-center justify-between pt-3 border-t border-gray-50">
-                    <span class="text-xs text-gray-500">{{ case.petitioner }}</span>
-                    <span class="text-xs font-semibold text-primary">{{ case.claim_amount }}</span>
-                </div>
-            </a>
+            <div class="bg-white rounded-2xl shadow-card section-card p-5 relative group hover:shadow-card-hover transition-all">
+                <a href="/cases/{{ case.id }}/" class="block">
+                    <div class="flex items-start justify-between mb-3">
+                        <div class="w-10 h-10 bg-primary/10 rounded-xl flex items-center justify-center flex-shrink-0"><svg class="w-5 h-5 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"/></svg></div>
+                        {% if case.status == 'Active' %}<span class="text-xs px-2.5 py-1 rounded-full font-medium bg-green-50 text-green-700">{{ case.status }}</span>
+                        {% elif case.status == 'Pending' %}<span class="text-xs px-2.5 py-1 rounded-full font-medium bg-yellow-50 text-yellow-700">{{ case.status }}</span>
+                        {% else %}<span class="text-xs px-2.5 py-1 rounded-full font-medium bg-gray-100 text-gray-500">{{ case.status }}</span>{% endif %}
+                    </div>
+                    <h3 class="font-semibold text-gray-800 text-sm mb-1">{{ case.name }}</h3>
+                    <p class="text-xs text-primary font-medium mb-2">{{ case.case_no }}</p>
+                    <p class="text-xs text-gray-400 mb-3">{{ case.type }} · {{ case.date }}</p>
+                    <div class="flex items-center justify-between pt-3 border-t border-gray-50">
+                        <span class="text-xs text-gray-500">{{ case.petitioner }}</span>
+                        <span class="text-xs font-semibold text-primary">{{ case.claim_amount }}</span>
+                    </div>
+                </a>
+                <button onclick="confirmDeleteCase({{ case.id }}, '{{ case.name|escapejs }}')" class="absolute top-3 right-3 w-7 h-7 rounded-lg bg-red-50 text-red-600 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center hover:bg-red-100" title="Delete case">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+                </button>
+            </div>
             {% empty %}
             <div class="col-span-3 text-center py-16 text-gray-400 text-sm">No cases found. Create your first case.</div>
             {% endfor %}
@@ -87,6 +92,22 @@ document.addEventListener('DOMContentLoaded', function() {
                 <p class="text-sm text-gray-400 font-medium">Add New Case</p>
             </button>
         </div>
+    </div>
+</div>
+
+<!-- Delete Confirmation Modal -->
+<div id="delete-case-modal" class="hidden fixed inset-0 modal-overlay z-50 flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6 fade-in">
+        <div class="flex items-center justify-center w-12 h-12 rounded-full bg-red-100 mx-auto mb-4">
+            <svg class="w-6 h-6 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+        </div>
+        <h3 class="font-semibold text-gray-800 text-lg text-center mb-2">Delete Case</h3>
+        <p class="text-sm text-gray-600 text-center mb-6">Are you sure you want to delete "<span id="delete-case-name" class="font-semibold"></span>"? This will permanently remove the case and all associated documents from storage. This action cannot be undone.</p>
+        <form id="delete-case-form" method="POST" class="flex gap-3">
+            {% csrf_token %}
+            <button type="button" onclick="document.getElementById('delete-case-modal').classList.add('hidden')" class="flex-1 py-2.5 rounded-xl text-sm font-semibold border border-gray-200 hover:bg-gray-50 transition-colors">Cancel</button>
+            <button type="submit" class="flex-1 py-2.5 rounded-xl text-sm font-semibold bg-red-600 text-white hover:bg-red-700 transition-colors">Delete</button>
+        </form>
     </div>
 </div>
 
@@ -123,6 +144,13 @@ document.addEventListener('DOMContentLoaded', function() {
 
 {% block extra_scripts %}
 <script>
+function confirmDeleteCase(caseId, caseName) {
+    event.stopPropagation();
+    document.getElementById('delete-case-name').textContent = caseName;
+    document.getElementById('delete-case-form').action = '/cases/' + caseId + '/delete/';
+    document.getElementById('delete-case-modal').classList.remove('hidden');
+}
+
 document.addEventListener('DOMContentLoaded', function() {
     var form = document.querySelector('#new-case-modal form');
     if (form) {

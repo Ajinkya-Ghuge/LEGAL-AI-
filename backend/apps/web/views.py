@@ -367,6 +367,51 @@ def cases_list(request):
 
 
 @login_required(login_url='/login/')
+@require_http_methods(["POST"])
+def delete_case(request, case_id):
+    """Delete case and all associated documents from database and Supabase storage"""
+    from apps.documents.storage import supabase_storage
+    
+    try:
+        case = Case.objects.get(pk=case_id)
+    except Case.DoesNotExist:
+        messages.error(request, "Case not found")
+        return redirect("cases_list")
+    
+    case_title = case.title
+    
+    # Delete all associated documents from Supabase
+    documents = Document.objects.filter(case=case)
+    for doc in documents:
+        if doc.supabase_path:
+            try:
+                success = supabase_storage.delete_file(doc.supabase_path)
+                if success:
+                    logger.info(f"✅ Deleted from Supabase: {doc.supabase_path}")
+                else:
+                    logger.warning(f"⚠️ Could not delete from Supabase: {doc.supabase_path}")
+            except Exception as e:
+                logger.error(f"❌ Error deleting from Supabase: {str(e)}")
+        
+        # Delete local file if exists
+        if doc.file:
+            try:
+                if os.path.exists(doc.file.path):
+                    os.remove(doc.file.path)
+                    logger.info(f"✅ Deleted local file: {doc.file.path}")
+            except Exception as e:
+                logger.error(f"❌ Error deleting local file: {str(e)}")
+    
+    # Delete the case (cascade will delete documents, timeline events, drafts)
+    case.delete()
+    
+    logger.info(f"✅ Deleted case: {case_title} (ID: {case_id})")
+    messages.success(request, f"Case '{case_title}' and all associated documents have been deleted successfully")
+    
+    return redirect("cases_list")
+
+
+@login_required(login_url='/login/')
 def new_case(request):
     if request.method != "POST":
         return redirect("cases_list")
@@ -401,15 +446,59 @@ def new_case(request):
 
     # Handle optional PDF upload + auto AI analysis
     if "case_pdf" in request.FILES:
+        from apps.documents.storage import supabase_storage
         pdf_file = request.FILES["case_pdf"]
         try:
+            # Generate unique filename
+            unique_filename = f"{uuid.uuid4().hex[:8]}_{pdf_file.name}"
+            supabase_path = f"cases/{case.pk}/docs/{unique_filename}"
+            
+            # Create document
             doc = Document.objects.create(
                 case          = case,
-                file          = pdf_file,
                 original_name = pdf_file.name,
                 doc_type      = Document.DOC_TYPE_CASE_FILE,
+                supabase_path = supabase_path,
             )
-            result = extract_pdf(doc.file.path)
+            
+            # Upload to Supabase
+            try:
+                success, public_url = supabase_storage.upload_file_bytes(
+                    file_bytes=pdf_file.read(),
+                    destination_path=supabase_path,
+                    content_type="application/pdf"
+                )
+                
+                if success and public_url:
+                    doc.supabase_url = public_url
+                    logger.info(f"✅ Case PDF uploaded to Supabase: {supabase_path}")
+                else:
+                    # Fallback to local
+                    pdf_file.seek(0)
+                    doc.file = pdf_file
+                    logger.warning("⚠️ Using local storage for case PDF")
+            except Exception as e:
+                logger.error(f"Supabase upload failed: {str(e)}, using local storage")
+                pdf_file.seek(0)
+                doc.file = pdf_file
+            
+            doc.save()
+            
+            # Extract PDF
+            if doc.supabase_url and not doc.file:
+                pdf_bytes = supabase_storage.download_file(supabase_path)
+                if pdf_bytes:
+                    import tempfile
+                    with tempfile.NamedTemporaryFile(delete=False, suffix='.pdf') as tmp:
+                        tmp.write(pdf_bytes)
+                        tmp_path = tmp.name
+                    result = extract_pdf(tmp_path)
+                    os.unlink(tmp_path)
+                else:
+                    result = {"success": False, "error": "Could not download from Supabase"}
+            else:
+                result = extract_pdf(doc.file.path)
+                
             if result["success"]:
                 doc.pages             = result["pages"]
                 doc.extracted_text    = result["full_text"]
@@ -1310,6 +1399,9 @@ Generate the complete document now:
 @csrf_exempt
 @require_http_methods(["POST"])
 def api_upload_document(request):
+    from apps.documents.storage import supabase_storage
+    import uuid
+    
     case_id  = request.POST.get("case_id")
     doc_type = request.POST.get("doc_type", Document.DOC_TYPE_CASE_FILE)
 
@@ -1324,24 +1416,78 @@ def api_upload_document(request):
         return JsonResponse({"error": "Case not found"}, status=404)
 
     pdf_file = request.FILES["file"]
+    
+    # Generate unique filename to avoid conflicts
+    file_ext = os.path.splitext(pdf_file.name)[1]
+    unique_filename = f"{uuid.uuid4().hex[:8]}_{pdf_file.name}"
+    supabase_path = f"cases/{case_id}/docs/{unique_filename}"
+    
+    # Create document record
     doc = Document.objects.create(
         case          = case,
-        file          = pdf_file,
         original_name = pdf_file.name,
         doc_type      = doc_type,
+        supabase_path = supabase_path,
     )
-
-    if pdf_file.name.lower().endswith(".pdf"):
-        result = extract_pdf(doc.file.path)
-        if result["success"]:
-            doc.pages             = result["pages"]
-            doc.extracted_text    = result["full_text"]
-            doc.page_texts        = result["page_texts"]
-            doc.processing_status = Document.PROCESSING_DONE
+    
+    # Upload to Supabase Storage
+    try:
+        success, public_url = supabase_storage.upload_file_bytes(
+            file_bytes=pdf_file.read(),
+            destination_path=supabase_path,
+            content_type="application/pdf"
+        )
+        
+        if success and public_url:
+            doc.supabase_url = public_url
+            logger.info(f"✅ PDF uploaded to Supabase: {supabase_path}")
         else:
+            logger.warning(f"⚠️ Supabase upload failed, falling back to local storage")
+            # Fallback to local storage if Supabase fails
+            pdf_file.seek(0)  # Reset file pointer
+            doc.file = pdf_file
+    except Exception as e:
+        logger.error(f"❌ Supabase upload error: {str(e)}, using local storage")
+        pdf_file.seek(0)
+        doc.file = pdf_file
+    
+    doc.save()
+
+    # Extract PDF text (works with both local and Supabase files)
+    if pdf_file.name.lower().endswith(".pdf"):
+        try:
+            # Download from Supabase for processing if needed
+            if doc.supabase_url and not doc.file:
+                pdf_bytes = supabase_storage.download_file(supabase_path)
+                if pdf_bytes:
+                    # Save temporarily for extraction
+                    import tempfile
+                    with tempfile.NamedTemporaryFile(delete=False, suffix='.pdf') as tmp:
+                        tmp.write(pdf_bytes)
+                        tmp_path = tmp.name
+                    
+                    result = extract_pdf(tmp_path)
+                    os.unlink(tmp_path)  # Clean up temp file
+                else:
+                    result = {"success": False, "error": "Could not download from Supabase"}
+            else:
+                # Use local file
+                result = extract_pdf(doc.file.path)
+            
+            if result["success"]:
+                doc.pages             = result["pages"]
+                doc.extracted_text    = result["full_text"]
+                doc.page_texts        = result["page_texts"]
+                doc.processing_status = Document.PROCESSING_DONE
+            else:
+                doc.processing_status = Document.PROCESSING_FAILED
+                doc.processing_error  = result["error"]
+            doc.save()
+        except Exception as e:
+            logger.error(f"PDF extraction failed: {str(e)}")
             doc.processing_status = Document.PROCESSING_FAILED
-            doc.processing_error  = result["error"]
-        doc.save()
+            doc.processing_error = str(e)
+            doc.save()
 
     return JsonResponse({
         "id":               doc.pk,
@@ -1349,6 +1495,7 @@ def api_upload_document(request):
         "pages":            doc.pages,
         "processing_status": doc.processing_status,
         "extracted_text":   doc.extracted_text[:500] + "..." if doc.extracted_text else "",
+        "supabase_url":     doc.supabase_url,
     })
 
 

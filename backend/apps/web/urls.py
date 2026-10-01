@@ -16,6 +16,7 @@ urlpatterns = [
     path("cases/",                    views.cases_list,       name="cases_list"),
     path("cases/new/",                views.new_case,         name="new_case"),
     path("cases/<int:case_id>/",      views.case_workspace,   name="case_workspace"),
+    path("cases/<int:case_id>/delete/", views.delete_case,    name="delete_case"),
     path("timeline/",                 views.timeline,         name="timeline"),
     path("draft-editor/",             views.draft_editor,     name="draft_editor"),
     path("medical-analysis/",         views.medical_analysis, name="medical_analysis"),

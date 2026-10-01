@@ -210,14 +210,14 @@ async function viewInPDF(text, caseId) {
         
         const doc = docs[0];
         
-        if (!doc || !doc.file) {
+        if (!doc || (!doc.pdf_url && !doc.file)) {
             throw new Error('Document has no file URL');
         }
         
         document.getElementById('pdf-doc-name').textContent = doc.original_name || 'Medical Record';
         
-        // Load PDF - handle both absolute and relative URLs
-        let pdfUrl = doc.file;
+        // Load PDF - use pdf_url first (Supabase), fallback to file (local)
+        let pdfUrl = doc.pdf_url || doc.file;
         if (!pdfUrl.startsWith('http')) {
             // If relative URL, prepend the origin
             pdfUrl = window.location.origin + pdfUrl;

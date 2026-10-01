@@ -27,3 +27,7 @@ tiktoken==0.5.2
 python-dotenv==1.0.0
 Pillow==10.1.0
 Markdown==3.5.1
+
+# Supabase Storage
+supabase==2.3.4
+storage3==0.7.4

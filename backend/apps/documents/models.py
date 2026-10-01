@@ -48,7 +48,9 @@ class Document(models.Model):
     ]
 
     case            = models.ForeignKey(Case, on_delete=models.CASCADE, related_name="documents")
-    file            = models.FileField(upload_to=document_upload_path)
+    file            = models.FileField(upload_to=document_upload_path, blank=True, null=True)
+    supabase_url    = models.URLField(max_length=500, blank=True, null=True, help_text="Supabase Storage URL")
+    supabase_path   = models.CharField(max_length=500, blank=True, null=True, help_text="Path in Supabase bucket")
     original_name   = models.CharField(max_length=255, blank=True)
     doc_type        = models.CharField(max_length=20, choices=DOC_TYPE_CHOICES, default=DOC_TYPE_OTHER)
 
@@ -81,3 +83,12 @@ class Document(models.Model):
     @property
     def filename(self):
         return os.path.basename(self.file.name) if self.file else ""
+    
+    @property
+    def pdf_url(self):
+        """Get PDF URL - prioritize Supabase, fallback to local file"""
+        if self.supabase_url:
+            return self.supabase_url
+        elif self.file:
+            return self.file.url
+        return None
