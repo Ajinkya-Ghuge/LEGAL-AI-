@@ -462,23 +462,30 @@ def new_case(request):
             )
             
             # Upload to Supabase
+            logger.info(f"🔄 Starting Supabase upload: {supabase_path}")
             try:
+                # Force bucket creation
+                bucket_ready = supabase_storage.ensure_bucket_exists()
+                logger.info(f"📦 Bucket status: {bucket_ready}")
+                
+                if not bucket_ready:
+                    raise Exception("Supabase bucket not ready")
+                
                 success, public_url = supabase_storage.upload_file_bytes(
                     file_bytes=pdf_file.read(),
                     destination_path=supabase_path,
                     content_type="application/pdf"
                 )
                 
+                logger.info(f"📤 Upload result: success={success}, url={public_url}")
+                
                 if success and public_url:
                     doc.supabase_url = public_url
                     logger.info(f"✅ Case PDF uploaded to Supabase: {supabase_path}")
                 else:
-                    # Fallback to local
-                    pdf_file.seek(0)
-                    doc.file = pdf_file
-                    logger.warning("⚠️ Using local storage for case PDF")
+                    raise Exception(f"Upload failed: success={success}, url={public_url}")
             except Exception as e:
-                logger.error(f"Supabase upload failed: {str(e)}, using local storage")
+                logger.error(f"❌ Supabase upload failed: {str(e)}, using local storage")
                 pdf_file.seek(0)
                 doc.file = pdf_file
             
@@ -1431,21 +1438,28 @@ def api_upload_document(request):
     )
     
     # Upload to Supabase Storage
+    logger.info(f"🔄 Starting Supabase upload (API): {supabase_path}")
     try:
+        # Force bucket creation
+        bucket_ready = supabase_storage.ensure_bucket_exists()
+        logger.info(f"📦 Bucket status (API): {bucket_ready}")
+        
+        if not bucket_ready:
+            raise Exception("Supabase bucket not ready")
+        
         success, public_url = supabase_storage.upload_file_bytes(
             file_bytes=pdf_file.read(),
             destination_path=supabase_path,
             content_type="application/pdf"
         )
         
+        logger.info(f"📤 Upload result (API): success={success}, url={public_url}")
+        
         if success and public_url:
             doc.supabase_url = public_url
             logger.info(f"✅ PDF uploaded to Supabase: {supabase_path}")
         else:
-            logger.warning(f"⚠️ Supabase upload failed, falling back to local storage")
-            # Fallback to local storage if Supabase fails
-            pdf_file.seek(0)  # Reset file pointer
-            doc.file = pdf_file
+            raise Exception(f"Upload failed: success={success}, url={public_url}")
     except Exception as e:
         logger.error(f"❌ Supabase upload error: {str(e)}, using local storage")
         pdf_file.seek(0)
