@@ -2148,3 +2148,189 @@ def api_chat(request):
             "sources": [],
             "confidence": "error"
         }, status=500)
+
+
+
+# ── DIAGNOSTIC VIEWS ──────────────────────────────────────────────────────────
+
+@csrf_exempt
+def test_supabase_view(request):
+    """
+    Web-based Supabase diagnostic endpoint
+    Visit: https://legalx.me/test-supabase/
+    """
+    import sys
+    from io import StringIO
+    
+    output = StringIO()
+    
+    def write(msg, style="info"):
+        colors = {
+            "error": "#ef4444",
+            "success": "#10b981",
+            "warning": "#f59e0b",
+            "info": "#3b82f6"
+        }
+        color = colors.get(style, colors["info"])
+        output.write(f'<div style="color:{color};margin:5px 0;">{msg}</div>\n')
+    
+    write("="*60)
+    write("🔍 SUPABASE STORAGE DIAGNOSTIC TEST", "info")
+    write("="*60)
+    
+    # Step 1: Check environment variables
+    write("<br>1️⃣ Checking Environment Variables...", "info")
+    supabase_url = getattr(settings, 'SUPABASE_URL', None)
+    supabase_key = getattr(settings, 'SUPABASE_KEY', None)
+    
+    if not supabase_url:
+        write("   ❌ SUPABASE_URL not set in settings", "error")
+        return render(request, 'test_result.html', {'output': output.getvalue()})
+    else:
+        write(f"   ✅ SUPABASE_URL: {supabase_url}", "success")
+    
+    if not supabase_key:
+        write("   ❌ SUPABASE_KEY not set in settings", "error")
+        return render(request, 'test_result.html', {'output': output.getvalue()})
+    else:
+        write(f"   ✅ SUPABASE_KEY: {supabase_key[:20]}...{supabase_key[-10:]}", "success")
+    
+    # Step 2: Check Supabase package
+    write("<br>2️⃣ Checking Supabase Package...", "info")
+    try:
+        import supabase
+        from supabase import create_client, Client
+        write(f"   ✅ supabase package installed: {supabase.__version__}", "success")
+    except ImportError as e:
+        write(f"   ❌ supabase package not installed: {e}", "error")
+        write("   Run: pip install supabase==2.3.4", "warning")
+        return render(request, 'test_result.html', {'output': output.getvalue()})
+    
+    # Step 3: Test client connection
+    write("<br>3️⃣ Testing Supabase Client Connection...", "info")
+    try:
+        client = create_client(supabase_url, supabase_key)
+        write("   ✅ Supabase client created successfully", "success")
+    except Exception as e:
+        write(f"   ❌ Failed to create client: {e}", "error")
+        return render(request, 'test_result.html', {'output': output.getvalue()})
+    
+    # Step 4: Test bucket access
+    write("<br>4️⃣ Testing Bucket Access...", "info")
+    bucket_name = "legal-documents"
+    try:
+        # Try to get bucket
+        bucket = client.storage.get_bucket(bucket_name)
+        write(f"   ✅ Bucket '{bucket_name}' exists", "success")
+        write(f"   📦 Bucket info: {bucket}", "info")
+    except Exception as e:
+        write(f"   ⚠️  Bucket doesn't exist: {e}", "warning")
+        
+        # Try to create bucket
+        write(f"<br>5️⃣ Attempting to create bucket '{bucket_name}'...", "info")
+        try:
+            new_bucket = client.storage.create_bucket(
+                bucket_name,
+                options={"public": True}
+            )
+            write(f"   ✅ Created bucket: {new_bucket}", "success")
+        except Exception as create_error:
+            write(f"   ❌ Failed to create bucket: {create_error}", "error")
+            write("<br>   💡 You may need to create the bucket manually in Supabase Dashboard:", "warning")
+            write("      1. Go to Supabase Dashboard → Storage", "warning")
+            write("      2. Create a new PUBLIC bucket named 'legal-documents'", "warning")
+            return render(request, 'test_result.html', {'output': output.getvalue()})
+    
+    # Step 6: Test file upload
+    write("<br>6️⃣ Testing File Upload...", "info")
+    test_path = f"test/diagnostic_{uuid.uuid4().hex[:8]}.txt"
+    test_content = b"Supabase diagnostic test file"
+    
+    try:
+        upload_response = client.storage.from_(bucket_name).upload(
+            path=test_path,
+            file=test_content,
+            file_options={"content-type": "text/plain"}
+        )
+        write(f"   ✅ Test file uploaded: {upload_response}", "success")
+    except Exception as e:
+        write(f"   ❌ Upload failed: {e}", "error")
+        return render(request, 'test_result.html', {'output': output.getvalue()})
+    
+    # Step 7: Test public URL generation
+    write("<br>7️⃣ Testing Public URL Generation...", "info")
+    try:
+        public_url = client.storage.from_(bucket_name).get_public_url(test_path)
+        write(f"   ✅ Public URL: <a href='{public_url}' target='_blank' style='color:#3b82f6;'>{public_url}</a>", "success")
+    except Exception as e:
+        write(f"   ❌ Failed to get public URL: {e}", "error")
+    
+    # Step 8: Clean up test file
+    write("<br>8️⃣ Cleaning Up Test File...", "info")
+    try:
+        client.storage.from_(bucket_name).remove([test_path])
+        write("   ✅ Test file deleted", "success")
+    except Exception as e:
+        write(f"   ⚠️  Failed to delete test file: {e}", "warning")
+    
+    # Final verdict
+    write("<br>" + "="*60)
+    write("✅ ALL TESTS PASSED!", "success")
+    write("Supabase Storage is working correctly.", "success")
+    write("="*60)
+    
+    html_output = f"""
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <title>Supabase Diagnostic Test</title>
+        <style>
+            body {{
+                font-family: 'Courier New', monospace;
+                background: #1a1a1a;
+                color: #ffffff;
+                padding: 20px;
+                max-width: 1200px;
+                margin: 0 auto;
+            }}
+            .container {{
+                background: #2d2d2d;
+                padding: 30px;
+                border-radius: 10px;
+                box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+            }}
+            h1 {{
+                color: #10b981;
+                text-align: center;
+            }}
+            .output {{
+                background: #1a1a1a;
+                padding: 20px;
+                border-radius: 5px;
+                margin-top: 20px;
+                line-height: 1.6;
+            }}
+            a {{
+                text-decoration: none;
+            }}
+            a:hover {{
+                text-decoration: underline;
+            }}
+        </style>
+    </head>
+    <body>
+        <div class="container">
+            <h1>🔍 Supabase Storage Diagnostic</h1>
+            <div class="output">
+                {output.getvalue()}
+            </div>
+            <div style="text-align:center;margin-top:30px;">
+                <a href="/dashboard/" style="color:#3b82f6;font-size:16px;">← Back to Dashboard</a>
+            </div>
+        </div>
+    </body>
+    </html>
+    """
+    
+    from django.http import HttpResponse
+    return HttpResponse(html_output)

@@ -1,0 +1,73 @@
+SUPABASE DIAGNOSTIC INSTRUCTIONS
+=================================
+
+I've created a Django management command to diagnose the Supabase connection issue.
+
+WHAT I DID:
+-----------
+1. ✅ Created Django management command: test_supabase_connection
+2. ✅ Added EXTENSIVE error logging to storage.py (every step is logged)
+3. ✅ Committed and pushed to GitHub (Render will auto-deploy)
+
+WHAT YOU NEED TO DO:
+--------------------
+
+STEP 1: Wait for Render to Deploy
+----------------------------------
+- Go to Render Dashboard → Nexuslaw1
+- Wait for the new deployment to finish (usually 2-3 minutes)
+- Check that it deployed successfully
+
+STEP 2: Run the Diagnostic Command in Render
+---------------------------------------------
+- In Render Dashboard → Nexuslaw1 → Shell (wait, you said you don't have Shell access)
+
+ALTERNATIVE STEP 2: Check the Logs
+-----------------------------------
+Since you can't use Shell, let's use the enhanced logging I added:
+
+1. Go to Render Dashboard → Nexuslaw1 → Logs
+2. Try uploading a NEW PDF to a case at: https://legalx.me
+3. Watch the logs in real-time
+4. You should now see DETAILED logs like:
+   - "✅ SupabaseStorage initialized with URL: https://miiineezxbvmhlxavbfh..."
+   - "🚀 upload_file_bytes called: path=cases/X/docs/..."
+   - "📦 Ensuring bucket exists..."
+   - "📤 Uploading X bytes to..."
+   - "🔗 Getting public URL..."
+   - "✅ Successfully uploaded bytes to Supabase"
+   
+   OR if it fails, you'll see:
+   - "❌ CRITICAL: [detailed error message]"
+
+STEP 3: Send Me the Logs
+-------------------------
+Copy the logs from Step 2 and show them to me. This will tell us EXACTLY why it's failing.
+
+POSSIBLE ISSUES WE'RE CHECKING:
+--------------------------------
+1. Environment variables not loaded (SUPABASE_URL or SUPABASE_KEY empty)
+2. Supabase Python library not installed properly
+3. Supabase client creation failing (network/auth issue)
+4. Bucket doesn't exist and can't be created (permission issue)
+5. Upload API call failing (API error)
+6. Public URL generation failing
+
+WHAT TO LOOK FOR IN LOGS:
+--------------------------
+- ❌ CRITICAL: Supabase credentials missing → Environment variables not set
+- ❌ Failed to create Supabase client → Network or auth issue
+- ❌ Failed to create bucket → Permission issue (may need manual bucket creation)
+- ❌ upload_file_bytes failed → API error (check message)
+
+IF BUCKET CREATION FAILS:
+--------------------------
+You may need to manually create the bucket in Supabase Dashboard:
+1. Go to: https://miiineezxbvmhlxavbfh.supabase.co
+2. Click "Storage" in left sidebar
+3. Click "New bucket"
+4. Name: legal-documents
+5. Make it PUBLIC (toggle the public switch)
+6. Click "Create bucket"
+
+After creating the bucket manually, try uploading again.

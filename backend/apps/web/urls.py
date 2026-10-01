@@ -44,4 +44,7 @@ urlpatterns = [
     path("api/analyze-case/",         views.api_analyze_case,     name="api_analyze_case"),
     path("api/precedent-search/",     views.api_precedent_search, name="api_precedent_search"),
     path("api/missing-docs/update/",  views.api_missing_docs_update, name="api_missing_docs_update"),
+    
+    # ── Diagnostic endpoints ──────────────────────────────────────────────
+    path("test-supabase/",            views.test_supabase_view,   name="test_supabase"),
 ]
