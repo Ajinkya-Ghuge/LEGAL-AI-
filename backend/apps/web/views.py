@@ -15,7 +15,12 @@ from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_http_methods
 from django.conf import settings
 from django.utils.decorators import method_decorator
+from django.contrib.auth import authenticate, login as auth_login, logout as auth_logout
+from django.contrib.auth.models import User
+from django.contrib.auth.decorators import login_required
+from django.contrib import messages
 import json
+from functools import wraps
 
 from apps.cases.models import Case
 from apps.documents.models import Document
@@ -24,8 +29,76 @@ from apps.documents.full_pdf_analyzer import analyze_full_pdf, quick_analysis_vs
 from apps.timeline.models import TimelineEvent, MedicalSummary
 from apps.drafts.models import Draft
 from apps.web.formatters import format_medical_analysis, format_timeline_event
+from apps.web.markdown_formatter import format_medical_report
 
 logger = logging.getLogger(__name__)
+
+# ── AUTH VIEWS ────────────────────────────────────────────────────────────────
+
+def login_view(request):
+    """Django auth login"""
+    if request.user.is_authenticated:
+        return redirect('dashboard')
+    
+    if request.method == 'POST':
+        username = request.POST.get('username')
+        password = request.POST.get('password')
+        
+        user = authenticate(request, username=username, password=password)
+        if user is not None:
+            auth_login(request, user)
+            next_url = request.GET.get('next', '/dashboard/')
+            return redirect(next_url)
+        else:
+            messages.error(request, 'Invalid email or password')
+    
+    return render(request, 'login.html')
+
+
+def signup_view(request):
+    """Django auth signup"""
+    if request.user.is_authenticated:
+        return redirect('dashboard')
+    
+    if request.method == 'POST':
+        full_name = request.POST.get('full_name')
+        email = request.POST.get('email')
+        password1 = request.POST.get('password1')
+        password2 = request.POST.get('password2')
+        
+        if password1 != password2:
+            messages.error(request, 'Passwords do not match')
+            return render(request, 'signup.html')
+        
+        if len(password1) < 6:
+            messages.error(request, 'Password must be at least 6 characters')
+            return render(request, 'signup.html')
+        
+        if User.objects.filter(username=email).exists():
+            messages.error(request, 'Email already registered')
+            return render(request, 'signup.html')
+        
+        # Create user
+        user = User.objects.create_user(
+            username=email,
+            email=email,
+            password=password1,
+            first_name=full_name
+        )
+        
+        # Auto login after signup
+        auth_login(request, user)
+        messages.success(request, 'Account created successfully!')
+        return redirect('dashboard')
+    
+    return render(request, 'signup.html')
+
+
+def logout_view(request):
+    """Django auth logout"""
+    auth_logout(request)
+    messages.success(request, 'Logged out successfully')
+    return redirect('login')
 
 # ── AI helper ─────────────────────────────────────────────────────────────────
 
@@ -106,6 +179,53 @@ def ai_generate(prompt: str, fallback: str = "AI unavailable.", conversation_his
 
     logger.error("All Gemini models failed. Last error: %s", last_error)
     return None
+
+
+def ingest_case_to_rag(case_id: int):
+    """
+    Background task to ingest all case documents and data into simple RAG system.
+    Call this after PDF upload or case analysis completion.
+    """
+    from apps.web.simple_rag import SimpleCaseRAG
+    
+    try:
+        case = Case.objects.get(pk=case_id)
+        rag = SimpleCaseRAG(case_id)
+        
+        # Ingest all PDFs
+        for doc in case.documents.filter(processing_status=Document.PROCESSING_DONE):
+            if doc.file and doc.file.name.lower().endswith('.pdf'):
+                rag.ingest_pdf(doc.file.path, doc.id, doc.original_name)
+        
+        # Ingest case data
+        case_data = {
+            'case_no': case.case_no,
+            'client_name': case.client_name,
+            'accident_date': str(case.accident_date) if case.accident_date else None,
+            'accident_place': case.accident_place,
+            'fir_no': case.fir_no,
+            'claim_amount': case.claim_amount,
+            'injuries': case.injuries or [],
+            'timeline': []
+        }
+        
+        # Add timeline events
+        for event in case.timeline_events.all():
+            case_data['timeline'].append({
+                'date': str(event.date),
+                'facility': event.title,
+                'doctor': event.doctor,
+                'description': event.description
+            })
+        
+        rag.ingest_case_data(case_data)
+        
+        logger.info(f"✅ Simple RAG ingestion complete for case {case_id}")
+        return True
+        
+    except Exception as e:
+        logger.error(f"❌ RAG ingestion failed for case {case_id}: {str(e)}")
+        return False
 
 
 def load_vault_text(max_chars: int = 6000) -> str:
@@ -197,15 +317,16 @@ def normalize_draft(draft: Draft) -> dict:
 # ── VIEWS ─────────────────────────────────────────────────────────────────────
 
 def index(request):
+    """Landing page - redirects to dashboard which requires login"""
     return redirect("dashboard")
 
 
+@login_required(login_url='/login/')
 def dashboard(request):
     recent_cases = [normalize_case(c) for c in Case.objects.order_by("-created_at")[:3]]
-
-    total   = Case.objects.count()
-    stats   = {
-        "total":     total,
+    total = Case.objects.count()
+    stats = {
+        "total": total,
         "by_status": {
             "active":  Case.objects.filter(status="ACTIVE").count(),
             "pending": Case.objects.filter(status="PENDING").count(),
@@ -214,10 +335,11 @@ def dashboard(request):
     }
     return render(request, "dashboard.html", {
         "recent_cases": recent_cases,
-        "stats":        stats,
+        "stats": stats,
     })
 
 
+@login_required(login_url='/login/')
 def cases_list(request):
     qs = Case.objects.all().order_by("-created_at")
 
@@ -244,6 +366,7 @@ def cases_list(request):
     return render(request, "cases_list.html", {"cases": cases, "stats": stats})
 
 
+@login_required(login_url='/login/')
 def new_case(request):
     if request.method != "POST":
         return redirect("cases_list")
@@ -431,6 +554,12 @@ VAULT CONTEXT:
 
         logger.info("Auto-analysis complete for case %d: %d injuries, %d timeline events",
                     case.pk, len(injuries), len(timeline_items))
+        
+        # Trigger RAG ingestion for case data
+        try:
+            ingest_case_to_rag(case.pk)
+        except Exception as e:
+            logger.error(f"RAG ingestion during auto-analysis failed: {str(e)}")
 
     except _json.JSONDecodeError as je:
         logger.error("AI returned invalid JSON for case %d: %s", case.pk, str(je))
@@ -446,6 +575,7 @@ VAULT CONTEXT:
         logger.exception("Auto-analysis failed for case %d: %s", case.pk, str(e))
 
 
+@login_required(login_url='/login/')
 def case_workspace(request, case_id):
     case_obj = get_object_or_404(Case, pk=case_id)
     case     = normalize_case(case_obj)
@@ -456,6 +586,11 @@ def case_workspace(request, case_id):
     ))
     drafts = [normalize_draft(d) for d in case_obj.drafts.order_by("-version")[:10]]
 
+    # Load timeline events if timeline tab is active
+    timeline_events = []
+    if active_tab == "timeline":
+        timeline_events = [normalize_event(e) for e in case_obj.timeline_events.order_by("date", "order")]
+
     # Chat history from session
     chat_history = request.session.get(f"chat_{case_id}", [])
 
@@ -464,10 +599,12 @@ def case_workspace(request, case_id):
         "active_tab":  active_tab,
         "documents":   documents,
         "drafts":      drafts,
+        "timeline":    timeline_events,
         "chat_history": chat_history,
     })
 
 
+@login_required(login_url='/login/')
 def timeline(request):
     case_id        = request.GET.get("case_id", "")
     active_section = request.GET.get("section", "visits")
@@ -496,6 +633,7 @@ def timeline(request):
     })
 
 
+@login_required(login_url='/login/')
 def draft_editor(request):
     draft_id   = request.GET.get("draft_id")
     draft_type = request.GET.get("type", "claim_petition")
@@ -547,6 +685,7 @@ def draft_editor(request):
     })
 
 
+@login_required(login_url='/login/')
 def medical_analysis(request):
     result   = None
     error    = None
@@ -912,6 +1051,7 @@ Award of compensation - [Explanation]
     })
 
 
+@login_required(login_url='/login/')
 def ask_question(request):
     """
     Legal-focused conversational AI with verified Indian law knowledge.
@@ -1007,6 +1147,7 @@ Answer naturally but use numbered points and bullet structure where helpful."""
 
 # ── AJAX / API VIEWS ──────────────────────────────────────────────────────────
 
+@login_required(login_url='/login/')
 @csrf_exempt
 @require_http_methods(["POST"])
 def api_clear_chat(request):
@@ -1016,166 +1157,7 @@ def api_clear_chat(request):
     return JsonResponse({"status": "ok"})
 
 
-@csrf_exempt
-@require_http_methods(["POST"])
-def api_chat(request):
-    """
-    Context-aware AI chat for case-specific queries
-    Includes: Case data, documents, timeline, medical summary, vault knowledge
-    """
-    try:
-        body = json.loads(request.body)
-    except Exception:
-        body = {}
-
-    message = body.get("message", "").strip()
-    case_id = body.get("case_id", "")
-
-    if not message:
-        return JsonResponse({"reply": "Please ask a question about this case."})
-
-    # Build comprehensive case context
-    case_context = ""
-    sources = []
-    
-    if case_id:
-        try:
-            case = Case.objects.get(pk=case_id)
-            
-            # 1. CASE BASIC INFO
-            case_context += f"""
-CASE: {case.case_no} — {case.title}
-TYPE: {case.get_case_type_display()}
-STATUS: {case.get_status_display()}
-
-PETITIONER:
-- Name: {case.client_name}
-- Father's Name: {case.father_name or 'N/A'}
-- Age: {case.client_age or 'N/A'}
-- Occupation: {case.occupation or 'N/A'}
-- Address: {case.client_address or 'N/A'}
-
-ACCIDENT:
-- Date: {case.accident_date or 'N/A'}
-- Place: {case.accident_place or 'N/A'}
-- Vehicle No: {case.vehicle_no or 'N/A'}
-- Hospital: {case.hospital or 'N/A'}
-- FIR No: {case.fir_no or 'N/A'}
-- Tribunal: {case.tribunal or 'N/A'}
-
-INJURIES:
-{chr(10).join(f'- {inj}' for inj in (case.injuries or ['No injuries recorded']))}
-
-CLAIM AMOUNT: {case.claim_amount_display}
-
-COMPENSATION BREAKDOWN:
-{chr(10).join(f'- {comp.get("head", "Item")}: {comp.get("amount", "N/A")}' for comp in (case.compensation or []))}
-"""
-            sources.append(f"Case #{case.case_no}")
-            
-            # 2. MEDICAL SUMMARY (if exists)
-            try:
-                summary = MedicalSummary.objects.get(case=case)
-                if summary.notes:
-                    case_context += f"\n\nMEDICAL ANALYSIS SUMMARY:\n{summary.notes[:1500]}\n"
-                    sources.append("Medical Analysis Report")
-                    
-                if summary.treatments:
-                    case_context += f"\n\nTREATMENTS:\n"
-                    for t in summary.treatments[:10]:
-                        case_context += f"- {t.get('type', 'Treatment')}: {t.get('detail', 'N/A')}\n"
-                        
-                if summary.medications:
-                    case_context += f"\n\nMEDICATIONS:\n"
-                    case_context += "\n".join(f"- {med}" for med in summary.medications[:20])
-                    
-                if summary.missing_docs:
-                    case_context += f"\n\nMISSING DOCUMENTS:\n"
-                    case_context += "\n".join(f"- {doc}" for doc in summary.missing_docs)
-                    
-            except MedicalSummary.DoesNotExist:
-                pass
-            
-            # 3. TIMELINE EVENTS
-            events = TimelineEvent.objects.filter(case=case).order_by('date')[:20]
-            if events.exists():
-                case_context += "\n\nMEDICAL TIMELINE:\n"
-                for event in events:
-                    case_context += f"- {event.date}: {event.title}"
-                    if event.doctor:
-                        case_context += f" (Dr. {event.doctor})"
-                    case_context += f" - {event.description[:100]}\n"
-                    if event.medications:
-                        case_context += f"  Medications: {', '.join(event.medications[:5])}\n"
-                sources.append("Timeline Records")
-            
-            # 4. DOCUMENTS (show what's available)
-            docs = Document.objects.filter(case=case)
-            if docs.exists():
-                case_context += "\n\nAVAILABLE DOCUMENTS:\n"
-                for doc in docs:
-                    case_context += f"- {doc.original_name} ({doc.pages} pages, {doc.get_doc_type_display()})\n"
-                    # Include snippet of document text if available
-                    if doc.extracted_text:
-                        snippet = doc.extracted_text[:800].replace('\n', ' ')
-                        case_context += f"  Preview: {snippet}...\n"
-                sources.append("Case Documents")
-                
-        except Case.DoesNotExist:
-            return JsonResponse({"reply": "Case not found. Please select a valid case."})
-    
-    # 5. VAULT KNOWLEDGE (legal precedents, laws)
-    vault_text = load_vault_text(max_chars=3000)
-    if vault_text:
-        case_context += f"\n\nLEGAL KNOWLEDGE BASE:\n{vault_text}\n"
-        sources.append("MACT Legal Vault")
-
-    # Generate AI response with full context
-    prompt = f"""
-You are a SENIOR INDIAN MACT ADVOCATE with 20+ years of experience.
-
-The lawyer is asking about a specific case. Answer based ONLY on the case data provided below.
-
-IMPORTANT RULES:
-1. Be SPECIFIC - cite exact facts, dates, amounts from the case
-2. Be CONCISE - answer in 3-5 sentences max
-3. Be PROFESSIONAL - use legal terminology lawyers understand
-4. CITE SOURCES - mention where info comes from ("According to Timeline", "As per Medical Analysis", "Based on Case Documents")
-5. If you don't have the information, SAY SO - don't make things up
-6. For legal questions, cite relevant sections from Motor Vehicles Act or case law
-
-==================== CASE DATA ====================
-{case_context}
-====================================================
-
-LAWYER'S QUESTION: {message}
-
-YOUR ANSWER (cite sources, be specific with facts):
-"""
-
-    reply = ai_generate(prompt)
-    
-    if not reply:
-        reply = "Sorry, I couldn't generate a response. Please check your API configuration."
-    
-    # Add source citations at the end
-    if sources:
-        source_text = ", ".join(set(sources))
-        reply += f"\n\n📎 *Sources: {source_text}*"
-
-    # Persist to session
-    if case_id:
-        key = f"chat_{case_id}"
-        history = request.session.get(key, [])
-        now = datetime.now().strftime("%I:%M %p")
-        history.append({"role": "user", "content": message, "time": now})
-        history.append({"role": "ai", "content": reply, "time": now, "sources": sources})
-        request.session[key] = history[-30:]  # Keep last 30 messages
-        request.session.modified = True
-
-    return JsonResponse({"reply": reply, "sources": sources})
-
-
+@login_required(login_url='/login/')
 @csrf_exempt
 @require_http_methods(["POST"])
 def api_save_draft(request):
@@ -1215,6 +1197,7 @@ def api_save_draft(request):
     return JsonResponse({"status": "saved", "file": filename})
 
 
+@login_required(login_url='/login/')
 @csrf_exempt
 @require_http_methods(["POST"])
 def api_generate_draft(request):
@@ -1323,6 +1306,7 @@ Generate the complete document now:
     })
 
 
+@login_required(login_url='/login/')
 @csrf_exempt
 @require_http_methods(["POST"])
 def api_upload_document(request):
@@ -1378,6 +1362,7 @@ def error_500(request):
 
 # ── COMPENSATION PAGE ─────────────────────────────────────────────────────────
 
+@login_required(login_url='/login/')
 def compensation(request):
     all_cases = [normalize_case(c) for c in Case.objects.order_by("-created_at")]
     result = None
@@ -1468,6 +1453,7 @@ Format as a professional compensation statement.
     })
 
 
+@login_required(login_url='/login/')
 @csrf_exempt
 @require_http_methods(["POST"])
 def api_compensation_calculate(request):
@@ -1526,11 +1512,17 @@ def _case_base(request, case_id):
     return case_obj, normalize_case(case_obj)
 
 
+@login_required(login_url='/login/')
 def case_injuries(request, case_id):
     case_obj, case = _case_base(request, case_id)
     # Try to get medical summary
     try:
         summary = case_obj.medical_summary
+        # Format the notes for display
+        if summary.notes:
+            summary.formatted_notes = format_medical_report(summary.notes)
+        else:
+            summary.formatted_notes = ""
     except Exception:
         summary = None
     return render(request, "case_injuries.html", {
@@ -1540,10 +1532,16 @@ def case_injuries(request, case_id):
     })
 
 
+@login_required(login_url='/login/')
 def case_treatment(request, case_id):
     case_obj, case = _case_base(request, case_id)
     try:
         summary = case_obj.medical_summary
+        # Format the notes for display
+        if summary.notes:
+            summary.formatted_notes = format_medical_report(summary.notes)
+        else:
+            summary.formatted_notes = ""
     except Exception:
         summary = None
     return render(request, "case_treatment.html", {
@@ -1553,6 +1551,7 @@ def case_treatment(request, case_id):
     })
 
 
+@login_required(login_url='/login/')
 def case_expenses(request, case_id):
     case_obj, case = _case_base(request, case_id)
     documents = list(case_obj.documents.order_by("-uploaded_at").values(
@@ -1565,6 +1564,7 @@ def case_expenses(request, case_id):
     })
 
 
+@login_required(login_url='/login/')
 def case_compensation(request, case_id):
     case_obj, case = _case_base(request, case_id)
     return render(request, "case_compensation.html", {
@@ -1573,10 +1573,16 @@ def case_compensation(request, case_id):
     })
 
 
+@login_required(login_url='/login/')
 def case_reports(request, case_id):
     case_obj, case = _case_base(request, case_id)
     try:
         summary = case_obj.medical_summary
+        # Format the notes for display
+        if summary.notes:
+            summary.formatted_notes = format_medical_report(summary.notes)
+        else:
+            summary.formatted_notes = ""
     except Exception:
         summary = None
     return render(request, "case_reports.html", {
@@ -1586,6 +1592,7 @@ def case_reports(request, case_id):
     })
 
 
+@login_required(login_url='/login/')
 def case_drafts(request, case_id):
     case_obj, case = _case_base(request, case_id)
     drafts = [normalize_draft(d) for d in case_obj.drafts.order_by("-version")]
@@ -1596,6 +1603,7 @@ def case_drafts(request, case_id):
     })
 
 
+@login_required(login_url='/login/')
 def api_case_text(request):
     """Return extracted text from a case's most recent document."""
     case_id = request.GET.get("case_id")
@@ -1617,6 +1625,7 @@ def api_case_text(request):
         return JsonResponse({"text": "", "pages": 0, "doc_name": ""})
 
 
+@login_required(login_url='/login/')
 @csrf_exempt
 @require_http_methods(["POST"])
 def api_analyze_case(request):
@@ -1662,6 +1671,7 @@ def api_analyze_case(request):
 
 # ── PRECEDENT FINDER ──────────────────────────────────────────────────────────
 
+@login_required(login_url='/login/')
 def precedent_finder(request):
     result      = None
     error       = None
@@ -1748,6 +1758,7 @@ Provide specific citations. Do not make up case names.
     })
 
 
+@login_required(login_url='/login/')
 @csrf_exempt
 @require_http_methods(["POST"])
 def api_precedent_search(request):
@@ -1784,6 +1795,7 @@ VAULT: {vault_text}
 
 # ── MISSING DOCUMENTS CHECKER ─────────────────────────────────────────────────
 
+@login_required(login_url='/login/')
 def missing_docs(request):
     all_cases = [normalize_case(c) for c in Case.objects.order_by("-created_at")]
     selected_case = None
@@ -1849,6 +1861,7 @@ def missing_docs(request):
     })
 
 
+@login_required(login_url='/login/')
 @csrf_exempt
 @require_http_methods(["POST"])
 def api_missing_docs_update(request):
@@ -1874,3 +1887,103 @@ def api_missing_docs_update(request):
     # We need to use a different approach since we can't access session in csrf_exempt easily
     # Return success and let frontend handle localStorage
     return JsonResponse({"success": True, "doc_id": doc_id, "status": status})
+
+
+# ── RAG CHATBOT ───────────────────────────────────────────────────────────────
+
+@login_required(login_url='/login/')
+@csrf_exempt
+@require_http_methods(["POST"])
+def api_chat(request):
+    """
+    Simple RAG-powered chat endpoint for case-specific Q&A.
+    Uses lightweight keyword-based retrieval (no heavy dependencies)
+    
+    Body: {
+        "message": "user question",
+        "case_id": 123,
+        "history": [optional conversation history]
+    }
+    
+    Returns: {
+        "reply": "AI answer",
+        "sources": ["Page 4 of Medical Records", ...],
+        "confidence": "high/medium/low"
+    }
+    """
+    from apps.web.simple_rag import SimpleCaseRAG
+    
+    try:
+        body = json.loads(request.body)
+    except Exception:
+        return JsonResponse({"error": "Invalid JSON"}, status=400)
+    
+    message = body.get("message", "").strip()
+    case_id = body.get("case_id")
+    history = body.get("history", [])
+    
+    if not message:
+        return JsonResponse({"error": "message required"}, status=400)
+    
+    if not case_id:
+        return JsonResponse({"error": "case_id required"}, status=400)
+    
+    # Validate case exists
+    try:
+        case = Case.objects.get(pk=case_id)
+    except Case.DoesNotExist:
+        return JsonResponse({"error": "Case not found"}, status=404)
+    
+    try:
+        # Initialize simple RAG system
+        rag = SimpleCaseRAG(case_id)
+        
+        # Check if RAG has data
+        stats = rag.get_stats()
+        if stats.get('status') == 'empty':
+            # No data yet - trigger ingestion
+            logger.info(f"RAG empty for case {case_id}, triggering ingestion...")
+            ingest_case_to_rag(case_id)
+            # Re-initialize
+            rag = SimpleCaseRAG(case_id)
+            stats = rag.get_stats()
+            if stats.get('status') == 'empty':
+                return JsonResponse({
+                    "reply": "I don't have any case documents ingested yet. Please upload case documents and try again.",
+                    "sources": [],
+                    "confidence": "low"
+                })
+        
+        # Convert history
+        conversation_history = []
+        for msg in history[-5:]:
+            conversation_history.append({
+                'role': msg.get('role', 'user'),
+                'content': msg.get('content', '')
+            })
+        
+        # Get answer
+        result = rag.answer_question(message, conversation_history)
+        
+        # Format sources
+        sources_list = []
+        for source in result.get('sources', []):
+            doc_name = source.get('document', 'Unknown')
+            page = source.get('page', 'N/A')
+            sources_list.append(f"Page {page} of {doc_name}")
+        
+        return JsonResponse({
+            "reply": result.get('answer', 'I could not generate an answer.'),
+            "sources": sources_list,
+            "confidence": result.get('confidence', 'low'),
+            "chunks_found": result.get('chunks_found', 0)
+        })
+        
+    except Exception as e:
+        logger.exception(f"Chat error for case {case_id}: {str(e)}")
+        return JsonResponse({
+            "error": f"Chat failed: {str(e)}",
+            "reply": "I encountered an error while processing your question. Please try again or rephrase your question.",
+            "sources": [],
+            "confidence": "error"
+        }, status=500)

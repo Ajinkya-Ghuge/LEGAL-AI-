@@ -31,22 +31,43 @@
                 <p class="text-sm text-gray-800 leading-relaxed mb-2">
                     👋 Hello! I'm your Legal AI Assistant for <strong>{{ case.case_no }}</strong>.
                 </p>
-                <p class="text-xs text-gray-600 leading-relaxed">
+                <p class="text-xs text-gray-600 leading-relaxed mb-3">
                     I have analyzed all case documents, medical timeline, and legal precedents. 
-                    Ask me anything specific:
+                    You can ask me:
                 </p>
-                <div class="mt-3 space-y-1.5">
-                    <button onclick="askSuggestion('What are the total injuries sustained?')" 
+                <div class="text-xs text-gray-700 space-y-2 mb-3">
+                    <div><strong>📋 Case Details:</strong></div>
+                    <div class="ml-3 text-gray-600">• What are the injuries?</div>
+                    <div class="ml-3 text-gray-600">• When was the accident?</div>
+                    <div class="ml-3 text-gray-600">• What is the FIR number?</div>
+                    
+                    <div><strong>💊 Medical Info:</strong></div>
+                    <div class="ml-3 text-gray-600">• What medications were prescribed?</div>
+                    <div class="ml-3 text-gray-600">• What treatments were given?</div>
+                    <div class="ml-3 text-gray-600">• How long was hospital stay?</div>
+                    
+                    <div><strong>📄 Documents:</strong></div>
+                    <div class="ml-3 text-gray-600">• Summarize page 4</div>
+                    <div class="ml-3 text-gray-600">• What documents are missing?</div>
+                    <div class="ml-3 text-gray-600">• What's in the discharge summary?</div>
+                    
+                    <div><strong>⚖️ Legal Strategy:</strong></div>
+                    <div class="ml-3 text-gray-600">• Calculate compensation</div>
+                    <div class="ml-3 text-gray-600">• What are the claim heads?</div>
+                    <div class="ml-3 text-gray-600">• Suggest legal strategy</div>
+                </div>
+                <div class="mt-2 space-y-1.5">
+                    <button onclick="askSuggestion('What are all the injuries sustained by the patient?')" 
                             class="block w-full text-left text-xs bg-white/80 hover:bg-white border border-blue-200 rounded-lg px-3 py-2 text-gray-700 hover:text-primary transition-all hover:border-primary/50">
-                        💉 What are the total injuries sustained?
+                        💉 What are all the injuries?
                     </button>
-                    <button onclick="askSuggestion('Calculate compensation under Section 166')" 
+                    <button onclick="askSuggestion('What medications and treatments were prescribed?')" 
                             class="block w-full text-left text-xs bg-white/80 hover:bg-white border border-blue-200 rounded-lg px-3 py-2 text-gray-700 hover:text-primary transition-all hover:border-primary/50">
-                        💰 Calculate compensation under Section 166
+                        💊 What medications were prescribed?
                     </button>
-                    <button onclick="askSuggestion('What documents are missing for filing?')" 
+                    <button onclick="askSuggestion('Calculate total compensation under Section 166')" 
                             class="block w-full text-left text-xs bg-white/80 hover:bg-white border border-blue-200 rounded-lg px-3 py-2 text-gray-700 hover:text-primary transition-all hover:border-primary/50">
-                        📄 What documents are missing?
+                        💰 Calculate compensation
                     </button>
                 </div>
             </div>

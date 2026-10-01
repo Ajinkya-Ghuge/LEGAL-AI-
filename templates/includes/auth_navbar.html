@@ -1,0 +1,64 @@
+<!-- Auth Navbar Component - Add to any page's header -->
+<div class="flex items-center gap-3">
+    <!-- User Info -->
+    <div class="text-right">
+        <p class="text-sm font-medium text-gray-800" id="user-name">Loading...</p>
+        <p class="text-xs text-gray-500" id="user-email"></p>
+    </div>
+    
+    <!-- Logout Button -->
+    <button onclick="handleLogout()" 
+        class="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 text-sm font-medium rounded-lg transition-all flex items-center gap-2">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/>
+        </svg>
+        Logout
+    </button>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+// Initialize Supabase
+const supabase = window.supabase.createClient(
+    '{{ supabase_url }}',
+    '{{ supabase_key }}'
+);
+
+// Load user info
+(async () => {
+    try {
+        const { data: { user } } = await supabase.auth.getUser();
+        
+        if (user) {
+            document.getElementById('user-name').textContent = user.user_metadata?.full_name || 'User';
+            document.getElementById('user-email').textContent = user.email || '';
+        } else {
+            // Not logged in - redirect to login
+            window.location.href = '/login/';
+        }
+    } catch (error) {
+        console.error('Auth error:', error);
+    }
+})();
+
+// Logout function
+async function handleLogout() {
+    if (!confirm('Are you sure you want to logout?')) return;
+    
+    try {
+        await supabase.auth.signOut();
+        
+        // Clear cookies
+        document.cookie = 'supabase_access_token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT';
+        document.cookie = 'supabase_refresh_token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT';
+        
+        // Clear localStorage
+        localStorage.removeItem('supabase_session');
+        
+        // Redirect to login
+        window.location.href = '/logout/';
+    } catch (error) {
+        alert('Logout failed: ' + error.message);
+    }
+}
+</script>

@@ -16,8 +16,44 @@
         <a href="/cases/" class="text-sm text-gray-500 hover:text-primary transition-colors">Cases</a>
         <a href="/medical-analysis/" class="text-sm text-gray-500 hover:text-primary transition-colors">Medical Analysis</a>
         <a href="/draft-editor/" class="text-sm text-gray-500 hover:text-primary transition-colors">Drafts</a>
+        
+        <!-- User Menu -->
+        <div class="relative" id="userMenuContainer">
+            <button id="userMenuBtn" class="w-8 h-8 rounded-full bg-primary flex items-center justify-center text-white text-xs font-semibold cursor-pointer shadow-sm hover:bg-red-800 transition-colors">
+                {{ request.user.first_name.0|default:'U'|upper }}
+            </button>
+            <div id="userDropdown" class="hidden absolute right-0 mt-2 w-56 bg-white rounded-lg shadow-xl border border-gray-100 py-2 z-50">
+                <div class="px-4 py-3 border-b border-gray-100">
+                    <p class="text-sm font-semibold text-gray-800">{{ request.user.first_name|default:'User' }}</p>
+                    <p class="text-xs text-gray-500 truncate">{{ request.user.email }}</p>
+                </div>
+                <a href="/logout/" class="flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/></svg>
+                    Logout
+                </a>
+            </div>
+        </div>
     </div>
 </nav>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const menuBtn = document.getElementById('userMenuBtn');
+    const dropdown = document.getElementById('userDropdown');
+    const container = document.getElementById('userMenuContainer');
+    if (menuBtn && dropdown) {
+        menuBtn.addEventListener('click', function(e) {
+            e.stopPropagation();
+            dropdown.classList.toggle('hidden');
+        });
+        document.addEventListener('click', function(e) {
+            if (!container.contains(e.target)) {
+                dropdown.classList.add('hidden');
+            }
+        });
+    }
+});
+</script>
 
 <div class="pt-14 min-h-screen bg-bg">
     <div class="max-w-5xl mx-auto px-6 py-8">

@@ -153,3 +153,9 @@ VAULT_PATH = BASE_DIR.parent / "vault"
 # Set GEMINI_API_KEY as an environment variable in .env file
 # Get a key at: https://aistudio.google.com/app/apikey
 GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY")
+
+
+# ── Supabase Auth ─────────────────────────────────────────────────────────────
+# Get these from your Supabase project dashboard → Settings → API
+SUPABASE_URL = os.environ.get("SUPABASE_URL", "")
+SUPABASE_KEY = os.environ.get("SUPABASE_KEY", "")

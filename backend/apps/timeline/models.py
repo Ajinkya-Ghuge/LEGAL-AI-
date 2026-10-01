@@ -45,6 +45,18 @@ class TimelineEvent(models.Model):
     medications = models.JSONField(default=list, blank=True)  # ["Gabapentin", ...]
     order       = models.PositiveIntegerField(default=0)      # for manual sorting
 
+    # ── Source Verification Fields ───────────────────────────────────────
+    source_document = models.ForeignKey(
+        'documents.Document', 
+        on_delete=models.SET_NULL, 
+        null=True, 
+        blank=True,
+        related_name="sourced_timeline_events"
+    )
+    source_page     = models.IntegerField(null=True, blank=True)
+    source_snippet  = models.TextField(blank=True)  # exact text extracted from PDF
+    source_coordinates = models.JSONField(default=dict, blank=True)  # for PDF highlighting
+
     created_at  = models.DateTimeField(default=timezone.now)
 
     class Meta:
@@ -64,7 +76,7 @@ class MedicalSummary(models.Model):
     case        = models.OneToOneField(Case, on_delete=models.CASCADE, related_name="medical_summary")
 
     # ── Structured fields ─────────────────────────────────────────────────
-    injuries    = models.JSONField(default=list)    # ["Fracture of Right Femur", ...]
+    injuries    = models.JSONField(default=list)    # ["Fracture of Right Femur", ...] or [{"name": "...", "source_doc": id, "source_page": n, "source_snippet": "..."}]
     treatments  = models.JSONField(default=list)    # [{"type": "Surgery", "detail": "ORIF"}, ...]
     medications = models.JSONField(default=list)    # ["Gabapentin 300mg", ...]
     icd_codes   = models.JSONField(default=list)    # [{"code": "S72.0", "desc": "..."}, ...]

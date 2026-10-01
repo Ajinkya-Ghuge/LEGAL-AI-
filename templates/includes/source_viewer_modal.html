@@ -1,0 +1,199 @@
+<!-- PDF Source Verification Modal -->
+<div id="source-viewer-modal" class="hidden fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[90vh] flex flex-col">
+        <!-- Header -->
+        <div class="px-6 py-4 border-b border-gray-200 flex items-center justify-between bg-gradient-to-r from-blue-50 to-indigo-50">
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 bg-blue-600 rounded-xl flex items-center justify-center">
+                    <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                    </svg>
+                </div>
+                <div>
+                    <h3 class="text-lg font-bold text-gray-900">Source Verification</h3>
+                    <p class="text-sm text-gray-600" id="source-doc-name">Loading...</p>
+                </div>
+            </div>
+            <button onclick="closeSourceViewer()" class="text-gray-400 hover:text-gray-600 transition-colors">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                </svg>
+            </button>
+        </div>
+
+        <!-- Content -->
+        <div class="flex-1 overflow-hidden flex flex-col">
+            <!-- Info Bar -->
+            <div id="source-info-bar" class="px-6 py-3 bg-yellow-50 border-b border-yellow-200 hidden">
+                <div class="flex items-center gap-2 text-sm">
+                    <svg class="w-4 h-4 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                    </svg>
+                    <span class="text-yellow-800 font-medium">Found on <strong id="source-page-num">Page X</strong></span>
+                    <span class="text-yellow-600 mx-2">•</span>
+                    <span class="text-yellow-700" id="source-match-count">1 match</span>
+                </div>
+            </div>
+
+            <!-- PDF/Text Content -->
+            <div class="flex-1 overflow-y-auto p-6 bg-gray-50" id="source-content">
+                <div class="flex items-center justify-center py-12">
+                    <div class="text-center">
+                        <div class="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4 animate-pulse">
+                            <svg class="w-8 h-8 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+                            </svg>
+                        </div>
+                        <p class="text-gray-600 font-medium">Loading source document...</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Footer -->
+        <div class="px-6 py-4 border-t border-gray-200 bg-gray-50 flex items-center justify-between">
+            <div class="flex items-center gap-2 text-sm text-gray-600">
+                <svg class="w-4 h-4 text-green-500" fill="currentColor" viewBox="0 0 20 20">
+                    <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
+                </svg>
+                <span>Verified extraction from original document</span>
+            </div>
+            <button onclick="closeSourceViewer()" class="px-4 py-2 bg-gray-200 hover:bg-gray-300 text-gray-700 rounded-lg font-medium transition-colors">
+                Close
+            </button>
+        </div>
+    </div>
+</div>
+
+<script>
+function showSourceViewer(documentId, text, page) {
+    const modal = document.getElementById('source-viewer-modal');
+    const content = document.getElementById('source-content');
+    const docName = document.getElementById('source-doc-name');
+    const infoBar = document.getElementById('source-info-bar');
+    const pageNum = document.getElementById('source-page-num');
+    const matchCount = document.getElementById('source-match-count');
+    
+    // Show modal
+    modal.classList.remove('hidden');
+    
+    // Reset content
+    content.innerHTML = `
+        <div class="flex items-center justify-center py-12">
+            <div class="text-center">
+                <div class="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4 animate-pulse">
+                    <svg class="w-8 h-8 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+                    </svg>
+                </div>
+                <p class="text-gray-600 font-medium">Loading source document...</p>
+            </div>
+        </div>
+    `;
+    
+    // Build URL
+    let url = `/api/documents/${documentId}/view-source/?`;
+    if (text) url += `text=${encodeURIComponent(text)}`;
+    if (page) url += `&page=${page}`;
+    
+    // Fetch source
+    fetch(url)
+        .then(res => res.json())
+        .then(data => {
+            if (data.success) {
+                docName.textContent = data.document_name;
+                
+                if (data.matches && data.matches.length > 0) {
+                    // Show matches
+                    infoBar.classList.remove('hidden');
+                    pageNum.textContent = `Page ${data.matches[0].page}`;
+                    matchCount.textContent = `${data.matches.length} match${data.matches.length > 1 ? 'es' : ''}`;
+                    
+                    let html = '<div class="space-y-4">';
+                    data.matches.forEach((match, idx) => {
+                        html += `
+                            <div class="bg-white rounded-xl border-2 border-yellow-300 p-6 shadow-sm">
+                                <div class="flex items-center gap-2 mb-3">
+                                    <span class="px-2 py-1 bg-yellow-100 text-yellow-700 rounded text-xs font-bold">Page ${match.page}</span>
+                                    <span class="text-sm text-gray-500">Match ${idx + 1} of ${data.matches.length}</span>
+                                </div>
+                                <div class="bg-gray-50 p-4 rounded-lg border border-gray-200">
+                                    <p class="text-sm text-gray-700 leading-relaxed font-mono whitespace-pre-wrap">${highlightText(match.context, data.search_text)}</p>
+                                </div>
+                            </div>
+                        `;
+                    });
+                    html += '</div>';
+                    content.innerHTML = html;
+                } else if (data.page_data) {
+                    // Show page content
+                    infoBar.classList.remove('hidden');
+                    pageNum.textContent = `Page ${data.page_data.page}`;
+                    matchCount.textContent = `${data.page_data.total_pages} total pages`;
+                    
+                    content.innerHTML = `
+                        <div class="bg-white rounded-xl border border-gray-200 p-6 shadow-sm">
+                            <div class="bg-gray-50 p-4 rounded-lg border border-gray-200 max-h-[60vh] overflow-y-auto">
+                                <p class="text-sm text-gray-700 leading-relaxed font-mono whitespace-pre-wrap">${data.page_data.text}</p>
+                            </div>
+                        </div>
+                    `;
+                }
+            } else {
+                content.innerHTML = `
+                    <div class="text-center py-12">
+                        <div class="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                            <svg class="w-8 h-8 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                            </svg>
+                        </div>
+                        <p class="text-gray-600 font-medium">Failed to load source</p>
+                        <p class="text-sm text-gray-500 mt-2">${data.error || 'Unknown error'}</p>
+                    </div>
+                `;
+            }
+        })
+        .catch(err => {
+            console.error('Source viewer error:', err);
+            content.innerHTML = `
+                <div class="text-center py-12">
+                    <div class="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                        <svg class="w-8 h-8 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                        </svg>
+                    </div>
+                    <p class="text-gray-600 font-medium">Error loading source</p>
+                    <p class="text-sm text-gray-500 mt-2">${err.message}</p>
+                </div>
+            `;
+        });
+}
+
+function closeSourceViewer() {
+    document.getElementById('source-viewer-modal').classList.add('hidden');
+}
+
+function highlightText(text, search) {
+    if (!search) return text;
+    const regex = new RegExp(`(${escapeRegex(search)})`, 'gi');
+    return text.replace(regex, '<mark class="bg-yellow-200 font-bold px-1 rounded">$1</mark>');
+}
+
+function escapeRegex(str) {
+    return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+// Close on escape key
+document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') {
+        closeSourceViewer();
+    }
+});
+
+// Close on backdrop click
+document.getElementById('source-viewer-modal')?.addEventListener('click', function(e) {
+    if (e.target === this) {
+        closeSourceViewer();
+    }
+});
+</script>

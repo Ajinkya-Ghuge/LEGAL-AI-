@@ -7,6 +7,7 @@ from .models import TimelineEvent, MedicalSummary
 
 class TimelineEventSerializer(serializers.ModelSerializer):
     tag_display = serializers.SerializerMethodField()
+    source_document_name = serializers.SerializerMethodField()
 
     class Meta:
         model  = TimelineEvent
@@ -14,11 +15,18 @@ class TimelineEventSerializer(serializers.ModelSerializer):
             "id", "case", "date", "title", "doctor",
             "description", "tag", "tag_display",
             "medications", "order", "created_at",
+            "source_document", "source_document_name", "source_page", 
+            "source_snippet", "source_coordinates",
         ]
-        read_only_fields = ["id", "created_at", "tag_display"]
+        read_only_fields = ["id", "created_at", "tag_display", "source_document_name"]
 
     def get_tag_display(self, obj):
         return obj.get_tag_display()
+
+    def get_source_document_name(self, obj):
+        if obj.source_document:
+            return obj.source_document.filename
+        return None
 
     def validate_medications(self, value):
         if not isinstance(value, list):

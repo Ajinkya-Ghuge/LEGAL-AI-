@@ -1,0 +1,462 @@
+<!-- Enhanced PDF Viewer with Highlighting -->
+<div id="pdf-viewer-modal" class="hidden fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl shadow-2xl w-full max-w-6xl max-h-[95vh] flex flex-col">
+        <!-- Header -->
+        <div class="px-6 py-4 border-b border-gray-200 flex items-center justify-between bg-gradient-to-r from-blue-50 to-indigo-50">
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 bg-red-600 rounded-xl flex items-center justify-center">
+                    <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"/>
+                    </svg>
+                </div>
+                <div>
+                    <h3 class="text-lg font-bold text-gray-900">PDF Source Document</h3>
+                    <p class="text-sm text-gray-600" id="pdf-doc-name">Medical Record</p>
+                </div>
+            </div>
+            <div class="flex items-center gap-3">
+                <div id="pdf-search-info" class="hidden px-3 py-1.5 bg-yellow-100 text-yellow-800 rounded-lg text-sm font-medium">
+                    Searching for text...
+                </div>
+                <button onclick="closePDFViewer()" class="text-gray-400 hover:text-gray-600 transition-colors p-2">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                    </svg>
+                </button>
+            </div>
+        </div>
+
+        <!-- PDF Content -->
+        <div class="flex-1 overflow-hidden flex">
+            <!-- PDF Canvas Area -->
+            <div class="flex-1 overflow-y-auto bg-gray-100 p-4" id="pdf-container">
+                <div class="flex items-center justify-center h-full">
+                    <div class="text-center">
+                        <div class="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4 animate-pulse">
+                            <svg class="w-8 h-8 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+                            </svg>
+                        </div>
+                        <p class="text-gray-600 font-medium">Loading PDF...</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Text Search Results Sidebar -->
+            <div id="search-results-panel" class="hidden w-80 border-l border-gray-200 bg-white overflow-y-auto">
+                <div class="p-4">
+                    <h4 class="text-sm font-bold text-gray-900 mb-3">Search Results</h4>
+                    <div id="search-results-list" class="space-y-2">
+                        <!-- Results will be populated here -->
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Footer with Controls -->
+        <div class="px-6 py-4 border-t border-gray-200 bg-gray-50 flex items-center justify-between">
+            <div class="flex items-center gap-4">
+                <div class="flex items-center gap-2">
+                    <button onclick="previousPDFPage()" class="p-2 hover:bg-gray-200 rounded-lg transition-colors">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
+                        </svg>
+                    </button>
+                    <span class="text-sm text-gray-700 font-medium">
+                        Page <span id="current-page">1</span> of <span id="total-pages">1</span>
+                    </span>
+                    <button onclick="nextPDFPage()" class="p-2 hover:bg-gray-200 rounded-lg transition-colors">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+                        </svg>
+                    </button>
+                </div>
+                
+                <div class="h-6 w-px bg-gray-300"></div>
+                
+                <div class="flex items-center gap-2">
+                    <button onclick="zoomOut()" class="p-2 hover:bg-gray-200 rounded-lg transition-colors">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM13 10H7"/>
+                        </svg>
+                    </button>
+                    <span class="text-sm text-gray-700 font-medium" id="zoom-level">100%</span>
+                    <button onclick="zoomIn()" class="p-2 hover:bg-gray-200 rounded-lg transition-colors">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM10 7v3m0 0v3m0-3h3m-3 0H7"/>
+                        </svg>
+                    </button>
+                </div>
+            </div>
+            
+            <button onclick="closePDFViewer()" class="px-4 py-2 bg-gray-200 hover:bg-gray-300 text-gray-700 rounded-lg font-medium transition-colors">
+                Close
+            </button>
+        </div>
+    </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script>
+// PDF.js configuration with better error handling
+try {
+    if (typeof pdfjsLib !== 'undefined') {
+        pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+        console.log('PDF.js loaded successfully');
+    } else {
+        console.error('PDF.js library failed to load');
+    }
+} catch (error) {
+    console.error('PDF.js initialization error:', error);
+}
+
+let pdfDoc = null;
+let currentPage = 1;
+let totalPages = 0;
+let scale = 1.5;
+let searchText = '';
+let currentCaseId = null; // Will be set when page loads
+
+async function viewInPDF(text, caseId) {
+    const modal = document.getElementById('pdf-viewer-modal');
+    const container = document.getElementById('pdf-container');
+    const searchInfo = document.getElementById('pdf-search-info');
+    
+    if (!modal) {
+        console.error('PDF viewer modal not found in DOM');
+        alert('PDF viewer is not available. Please refresh the page.');
+        return;
+    }
+    
+    // Use provided caseId or fall back to global
+    const useCaseId = caseId || currentCaseId;
+    
+    if (!useCaseId) {
+        console.error('No case ID provided. currentCaseId:', currentCaseId, 'caseId param:', caseId);
+        modal.classList.remove('hidden');
+        container.innerHTML = `
+            <div class="text-center py-12">
+                <svg class="w-16 h-16 text-red-300 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
+                </svg>
+                <p class="text-red-600 font-medium">Error: Case ID not found</p>
+                <p class="text-sm text-gray-500 mt-2">Unable to load documents without case ID</p>
+            </div>
+        `;
+        return;
+    }
+    
+    modal.classList.remove('hidden');
+    searchText = text;
+    
+    // Show loading state
+    container.innerHTML = `
+        <div class="flex items-center justify-center h-full">
+            <div class="text-center">
+                <div class="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4 animate-pulse">
+                    <svg class="w-8 h-8 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+                    </svg>
+                </div>
+                <p class="text-gray-600 font-medium">Loading PDF...</p>
+            </div>
+        </div>
+    `;
+    
+    // Show search indicator
+    if (text) {
+        searchInfo.classList.remove('hidden');
+        searchInfo.textContent = `Searching for: "${text}"`;
+    }
+    
+    console.log('Fetching documents for case ID:', useCaseId); // Debug log
+    
+    try {
+        // Get first document from case
+        const docRes = await fetch(`/api/documents/?case_id=${useCaseId}`);
+        
+        if (!docRes.ok) {
+            throw new Error(`API returned ${docRes.status}: ${docRes.statusText}`);
+        }
+        
+        let data = await docRes.json();
+        
+        console.log('API response:', data); // Debug log
+        
+        // Handle both paginated and non-paginated responses
+        let docs = data;
+        if (data && data.results && Array.isArray(data.results)) {
+            // Paginated response from DRF
+            docs = data.results;
+            console.log('Using paginated results:', docs);
+        } else if (!Array.isArray(data)) {
+            // Single object response - wrap in array
+            docs = [data];
+            console.log('Wrapped single object in array:', docs);
+        }
+        
+        if (!docs || !Array.isArray(docs) || docs.length === 0) {
+            container.innerHTML = `
+                <div class="text-center py-12">
+                    <svg class="w-16 h-16 text-gray-300 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                    </svg>
+                    <p class="text-gray-600 font-medium">No PDF documents found for this case</p>
+                    <p class="text-sm text-gray-500 mt-2">Upload medical records to view source</p>
+                </div>
+            `;
+            return;
+        }
+        
+        const doc = docs[0];
+        
+        if (!doc || !doc.file) {
+            throw new Error('Document has no file URL');
+        }
+        
+        document.getElementById('pdf-doc-name').textContent = doc.original_name || 'Medical Record';
+        
+        // Load PDF - handle both absolute and relative URLs
+        let pdfUrl = doc.file;
+        if (!pdfUrl.startsWith('http')) {
+            // If relative URL, prepend the origin
+            pdfUrl = window.location.origin + pdfUrl;
+        }
+        
+        console.log('Loading PDF from:', pdfUrl); // Debug log
+        
+        // Configure PDF.js with CORS support
+        const loadingTask = pdfjsLib.getDocument({
+            url: pdfUrl,
+            cMapUrl: 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/cmaps/',
+            cMapPacked: true,
+            withCredentials: false, // Don't send cookies for CORS
+        });
+        
+        // Show loading progress
+        loadingTask.onProgress = function(progress) {
+            if (progress.total > 0) {
+                const percent = Math.round((progress.loaded / progress.total) * 100);
+                console.log(`Loading: ${percent}%`);
+            }
+        };
+        
+        pdfDoc = await loadingTask.promise;
+        totalPages = pdfDoc.numPages;
+        
+        document.getElementById('total-pages').textContent = totalPages;
+        
+        // Render first page
+        await renderPage(1);
+        
+        // Search for text if provided
+        if (searchText) {
+            await searchInPDF(searchText);
+        }
+        
+    } catch (error) {
+        console.error('PDF load error:', error);
+        container.innerHTML = `
+            <div class="text-center py-12">
+                <svg class="w-16 h-16 text-red-300 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                </svg>
+                <p class="text-gray-600 font-medium">Failed to load PDF</p>
+                <p class="text-sm text-gray-500 mt-2">${error.message}</p>
+                <p class="text-xs text-gray-400 mt-1">Check browser console for details</p>
+            </div>
+        `;
+    }
+}
+
+async function renderPage(num) {
+    currentPage = num;
+    document.getElementById('current-page').textContent = num;
+    
+    const page = await pdfDoc.getPage(num);
+    const container = document.getElementById('pdf-container');
+    
+    // Calculate scale to fit container width
+    const containerWidth = container.clientWidth - 40; // 20px padding on each side
+    const viewport = page.getViewport({ scale: 1.0 });
+    const calculatedScale = containerWidth / viewport.width;
+    
+    // Use calculated scale or user's zoom scale (whichever is set)
+    const actualScale = scale || calculatedScale;
+    const scaledViewport = page.getViewport({ scale: actualScale });
+    
+    const canvas = document.createElement('canvas');
+    const context = canvas.getContext('2d');
+    canvas.height = scaledViewport.height;
+    canvas.width = scaledViewport.width;
+    canvas.className = 'mx-auto shadow-2xl bg-white';
+    
+    const renderContext = {
+        canvasContext: context,
+        viewport: scaledViewport
+    };
+    
+    container.innerHTML = '';
+    container.appendChild(canvas);
+    
+    await page.render(renderContext).promise;
+    console.log(`Rendered page ${num} at scale ${actualScale}`);
+}
+
+async function searchInPDF(text) {
+    const resultsPanel = document.getElementById('search-results-panel');
+    const resultsList = document.getElementById('search-results-list');
+    
+    resultsPanel.classList.remove('hidden');
+    resultsList.innerHTML = '<p class="text-sm text-gray-500 animate-pulse">Searching through all pages...</p>';
+    
+    const matches = [];
+    
+    // Smart search - break into keywords and search for each
+    const keywords = text.toLowerCase()
+        .replace(/[^a-z0-9\s]/g, ' ') // Remove special chars
+        .split(/\s+/) // Split by whitespace
+        .filter(w => w.length > 3); // Only words with 4+ chars
+    
+    console.log('Searching for keywords:', keywords);
+    
+    // Search through all pages
+    for (let pageNum = 1; pageNum <= totalPages; pageNum++) {
+        try {
+            const page = await pdfDoc.getPage(pageNum);
+            const textContent = await page.getTextContent();
+            const pageText = textContent.items.map(item => item.str).join(' ');
+            const pageTextLower = pageText.toLowerCase();
+            
+            // Check if page contains ANY of the keywords
+            const foundKeywords = keywords.filter(kw => pageTextLower.includes(kw));
+            
+            if (foundKeywords.length > 0) {
+                // Calculate relevance score (how many keywords found)
+                const relevance = foundKeywords.length / keywords.length;
+                
+                // Find best match location
+                const firstKeyword = foundKeywords[0];
+                const index = pageTextLower.indexOf(firstKeyword);
+                
+                // Extract context around the match
+                const contextStart = Math.max(0, index - 150);
+                const contextEnd = Math.min(pageText.length, index + 200);
+                const snippet = pageText.substring(contextStart, contextEnd);
+                
+                matches.push({ 
+                    page: pageNum, 
+                    snippet: snippet.trim(),
+                    text: text,
+                    keywords: foundKeywords,
+                    relevance: relevance,
+                    index: index
+                });
+            }
+        } catch (err) {
+            console.error(`Error searching page ${pageNum}:`, err);
+        }
+    }
+    
+    // Sort by relevance (most keywords matched first)
+    matches.sort((a, b) => b.relevance - a.relevance);
+    
+    console.log(`Found ${matches.length} potential matches across ${new Set(matches.map(m => m.page)).size} pages`);
+    
+    if (matches.length > 0) {
+        // Show results
+        resultsList.innerHTML = matches.slice(0, 10).map((match, idx) => `
+            <div class="p-3 bg-yellow-50 border border-yellow-200 rounded-lg cursor-pointer hover:bg-yellow-100 transition-colors" onclick="goToPage(${match.page})">
+                <div class="flex items-center gap-2 mb-1">
+                    <span class="text-xs font-bold text-yellow-700">Page ${match.page}</span>
+                    <span class="text-xs text-yellow-600">${Math.round(match.relevance * 100)}% match</span>
+                </div>
+                <div class="text-xs text-gray-500 mb-1">
+                    Keywords: ${match.keywords.join(', ')}
+                </div>
+                <p class="text-xs text-gray-700 leading-relaxed">${highlightMatch(match.snippet, match.keywords)}</p>
+            </div>
+        `).join('');
+        
+        // IMPORTANT: Jump to BEST match page immediately
+        await renderPage(matches[0].page);
+        
+        // Update search info with results
+        document.getElementById('pdf-search-info').classList.remove('hidden');
+        document.getElementById('pdf-search-info').textContent = `Found ${matches.length} matches on ${new Set(matches.map(m => m.page)).size} pages`;
+        document.getElementById('pdf-search-info').className = 'px-3 py-1.5 bg-green-100 text-green-800 rounded-lg text-sm font-medium';
+        
+    } else {
+        // No matches found - still show the PDF but inform user
+        resultsList.innerHTML = `
+            <div class="p-4 bg-gray-50 rounded-lg text-center">
+                <svg class="w-8 h-8 text-gray-400 mx-auto mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+                </svg>
+                <p class="text-sm text-gray-600 font-medium">No exact matches found</p>
+                <p class="text-xs text-gray-500 mt-1">The text may be paraphrased or on a different page</p>
+                <p class="text-xs text-gray-400 mt-2">Searched for: "${text}"</p>
+            </div>
+        `;
+        document.getElementById('pdf-search-info').textContent = `No matches found for "${text}"`;
+        document.getElementById('pdf-search-info').className = 'px-3 py-1.5 bg-yellow-100 text-yellow-800 rounded-lg text-sm font-medium';
+    }
+}
+
+function highlightMatch(text, keywords) {
+    let highlighted = text;
+    
+    // Highlight each keyword
+    keywords.forEach(keyword => {
+        const regex = new RegExp(`(${keyword})`, 'gi');
+        highlighted = highlighted.replace(regex, '<mark class="bg-yellow-300 font-bold px-0.5 rounded">$1</mark>');
+    });
+    
+    return highlighted;
+}
+
+function goToPage(pageNum) {
+    renderPage(pageNum);
+}
+
+function nextPDFPage() {
+    if (currentPage < totalPages) {
+        renderPage(currentPage + 1);
+    }
+}
+
+function previousPDFPage() {
+    if (currentPage > 1) {
+        renderPage(currentPage - 1);
+    }
+}
+
+function zoomIn() {
+    scale += 0.25;
+    document.getElementById('zoom-level').textContent = Math.round(scale * 100) + '%';
+    renderPage(currentPage);
+}
+
+function zoomOut() {
+    if (scale > 0.5) {
+        scale -= 0.25;
+        document.getElementById('zoom-level').textContent = Math.round(scale * 100) + '%';
+        renderPage(currentPage);
+    }
+}
+
+function closePDFViewer() {
+    document.getElementById('pdf-viewer-modal').classList.add('hidden');
+    pdfDoc = null;
+}
+
+// Keyboard shortcuts
+document.addEventListener('keydown', function(e) {
+    const modal = document.getElementById('pdf-viewer-modal');
+    if (!modal.classList.contains('hidden')) {
+        if (e.key === 'Escape') closePDFViewer();
+        if (e.key === 'ArrowRight') nextPDFPage();
+        if (e.key === 'ArrowLeft') previousPDFPage();
+    }
+});
+</script>

@@ -71,7 +71,8 @@ class Case(models.Model):
     # ── Financial ─────────────────────────────────────────────────────────
     claim_amount    = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
 
-    # ── Injuries (stored as JSON list) ────────────────────────────────────
+    # ── Injuries (stored as JSON list with source tracking) ───────────────
+    # Format: [{"name": "Fracture", "source_doc": id, "source_page": 1, "source_snippet": "..."}, ...]
     injuries        = models.JSONField(default=list, blank=True)
 
     # ── Compensation breakdown (JSON list of {head, amount}) ──────────────

@@ -91,6 +91,15 @@ class DocumentViewSet(viewsets.ModelViewSet):
                 doc.extracted_text    = result["full_text"]
                 doc.page_texts        = result["page_texts"]
                 doc.processing_status = Document.PROCESSING_DONE
+                
+                # Trigger simple RAG ingestion for this PDF
+                try:
+                    from apps.web.simple_rag import SimpleCaseRAG
+                    rag = SimpleCaseRAG(case.id)
+                    rag.ingest_pdf(doc.file.path, doc.id, doc.original_name)
+                    logger.info(f"✅ Simple RAG ingestion complete for document {doc.id} in case {case.id}")
+                except Exception as e:
+                    logger.error(f"❌ Simple RAG ingestion failed for document {doc.id}: {str(e)}")
             else:
                 doc.processing_status = Document.PROCESSING_FAILED
                 doc.processing_error  = result["error"]
@@ -151,3 +160,62 @@ class DocumentViewSet(viewsets.ModelViewSet):
                 else f"Extraction failed: {result['error']}"
             ),
         })
+
+    # ── GET /api/documents/<id>/view-source/ ──────────────────────────────
+    @action(detail=True, methods=["get"], url_path="view-source")
+    def view_source(self, request, pk=None):
+        """
+        View source text in PDF with highlighting.
+        
+        Query params:
+            page (int, optional): Specific page number (1-indexed)
+            text (str, optional): Text snippet to highlight
+        """
+        from .pdf_viewer import PDFSourceViewer
+        
+        doc = self.get_object()
+        page_num = request.GET.get('page')
+        search_text = request.GET.get('text', '')
+        
+        if not doc.file:
+            return Response(
+                {"error": "Document file not found"},
+                status=status.HTTP_404_NOT_FOUND
+            )
+        
+        try:
+            with PDFSourceViewer(doc.file.path) as viewer:
+                if search_text:
+                    # Find text in document
+                    page_num_int = int(page_num) - 1 if page_num else None
+                    results = viewer.find_text_location(search_text, page_num_int)
+                    
+                    return Response({
+                        "success": True,
+                        "document_id": doc.id,
+                        "document_name": doc.original_name,
+                        "search_text": search_text,
+                        "matches": results,
+                        "total_matches": len(results)
+                    })
+                else:
+                    # Get page content
+                    if page_num:
+                        page_data = viewer.get_page_content(int(page_num))
+                        return Response({
+                            "success": True,
+                            "document_id": doc.id,
+                            "document_name": doc.original_name,
+                            "page_data": page_data
+                        })
+                    else:
+                        return Response(
+                            {"error": "Either 'page' or 'text' parameter required"},
+                            status=status.HTTP_400_BAD_REQUEST
+                        )
+        except Exception as e:
+            logger.exception("Error viewing source: %s", str(e))
+            return Response(
+                {"error": f"Failed to view source: {str(e)}"},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
