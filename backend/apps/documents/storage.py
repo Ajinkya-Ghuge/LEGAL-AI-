@@ -35,12 +35,12 @@ class SupabaseStorage:
                 logger.info(f"Bucket '{self.bucket_name}' already exists")
                 return True
             except Exception:
-                # Bucket doesn't exist, create it
+                # Bucket doesn't exist, create it as PUBLIC
                 client.storage.create_bucket(
                     self.bucket_name,
-                    options={"public": False}  # Private bucket
+                    options={"public": True}  # Public bucket for easy access
                 )
-                logger.info(f"Created bucket '{self.bucket_name}'")
+                logger.info(f"Created PUBLIC bucket '{self.bucket_name}'")
                 return True
         except Exception as e:
             logger.error(f"Failed to ensure bucket exists: {str(e)}")
