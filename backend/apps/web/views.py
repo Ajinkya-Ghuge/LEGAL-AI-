@@ -385,7 +385,7 @@ def delete_case(request, case_id):
     for doc in documents:
         if doc.supabase_path:
             try:
-                success = supabase_storage.delete_file(doc.supabase_path)
+                success = supabase_storage.delete_pdf(doc.supabase_path)
                 if success:
                     logger.info(f"✅ Deleted from Supabase: {doc.supabase_path}")
                 else:
@@ -449,41 +449,30 @@ def new_case(request):
         from apps.documents.storage import supabase_storage
         pdf_file = request.FILES["case_pdf"]
         try:
-            # Generate unique filename
-            unique_filename = f"{uuid.uuid4().hex[:8]}_{pdf_file.name}"
-            supabase_path = f"cases/{case.pk}/docs/{unique_filename}"
-            
-            # Create document
+            # Create document record first
             doc = Document.objects.create(
                 case          = case,
                 original_name = pdf_file.name,
                 doc_type      = Document.DOC_TYPE_CASE_FILE,
-                supabase_path = supabase_path,
             )
             
-            # Upload to Supabase
-            logger.info(f"🔄 Starting Supabase upload: {supabase_path}")
+            # Upload to Supabase using Nexus-style path: user_id/doc_id.pdf
+            logger.info(f"🔄 Starting Supabase upload for case {case.pk}, doc {doc.pk}")
             try:
-                # Force bucket creation
-                bucket_ready = supabase_storage.ensure_bucket_exists()
-                logger.info(f"📦 Bucket status: {bucket_ready}")
-                
-                if not bucket_ready:
-                    raise Exception("Supabase bucket not ready")
-                
-                success, public_url = supabase_storage.upload_file_bytes(
+                success, storage_path = supabase_storage.upload_pdf(
+                    user_id=request.user.id,
+                    doc_id=doc.pk,
                     file_bytes=pdf_file.read(),
-                    destination_path=supabase_path,
-                    content_type="application/pdf"
+                    filename=pdf_file.name
                 )
                 
-                logger.info(f"📤 Upload result: success={success}, url={public_url}")
+                logger.info(f"📤 Upload result: success={success}, path={storage_path}")
                 
-                if success and public_url:
-                    doc.supabase_url = public_url
-                    logger.info(f"✅ Case PDF uploaded to Supabase: {supabase_path}")
+                if success and storage_path:
+                    doc.supabase_path = storage_path
+                    logger.info(f"✅ Case PDF uploaded to Supabase: {storage_path}")
                 else:
-                    raise Exception(f"Upload failed: success={success}, url={public_url}")
+                    raise Exception(f"Upload failed: success={success}")
             except Exception as e:
                 logger.error(f"❌ Supabase upload failed: {str(e)}, using local storage")
                 pdf_file.seek(0)
@@ -492,8 +481,8 @@ def new_case(request):
             doc.save()
             
             # Extract PDF
-            if doc.supabase_url and not doc.file:
-                pdf_bytes = supabase_storage.download_file(supabase_path)
+            if doc.supabase_path and not doc.file:
+                pdf_bytes = supabase_storage.download_pdf(doc.supabase_path)
                 if pdf_bytes:
                     import tempfile
                     with tempfile.NamedTemporaryFile(delete=False, suffix='.pdf') as tmp:
@@ -1424,42 +1413,30 @@ def api_upload_document(request):
 
     pdf_file = request.FILES["file"]
     
-    # Generate unique filename to avoid conflicts
-    file_ext = os.path.splitext(pdf_file.name)[1]
-    unique_filename = f"{uuid.uuid4().hex[:8]}_{pdf_file.name}"
-    supabase_path = f"cases/{case_id}/docs/{unique_filename}"
-    
     # Create document record
     doc = Document.objects.create(
         case          = case,
         original_name = pdf_file.name,
         doc_type      = doc_type,
-        supabase_path = supabase_path,
     )
     
-    # Upload to Supabase Storage
-    logger.info(f"🔄 Starting Supabase upload (API): {supabase_path}")
+    # Upload to Supabase Storage using Nexus-style path
+    logger.info(f"🔄 Starting Supabase upload (API) for doc {doc.pk}")
     try:
-        # Force bucket creation
-        bucket_ready = supabase_storage.ensure_bucket_exists()
-        logger.info(f"📦 Bucket status (API): {bucket_ready}")
-        
-        if not bucket_ready:
-            raise Exception("Supabase bucket not ready")
-        
-        success, public_url = supabase_storage.upload_file_bytes(
+        success, storage_path = supabase_storage.upload_pdf(
+            user_id=request.user.id,
+            doc_id=doc.pk,
             file_bytes=pdf_file.read(),
-            destination_path=supabase_path,
-            content_type="application/pdf"
+            filename=pdf_file.name
         )
         
-        logger.info(f"📤 Upload result (API): success={success}, url={public_url}")
+        logger.info(f"📤 Upload result (API): success={success}, path={storage_path}")
         
-        if success and public_url:
-            doc.supabase_url = public_url
-            logger.info(f"✅ PDF uploaded to Supabase: {supabase_path}")
+        if success and storage_path:
+            doc.supabase_path = storage_path
+            logger.info(f"✅ PDF uploaded to Supabase: {storage_path}")
         else:
-            raise Exception(f"Upload failed: success={success}, url={public_url}")
+            raise Exception(f"Upload failed: success={success}")
     except Exception as e:
         logger.error(f"❌ Supabase upload error: {str(e)}, using local storage")
         pdf_file.seek(0)
@@ -1471,8 +1448,8 @@ def api_upload_document(request):
     if pdf_file.name.lower().endswith(".pdf"):
         try:
             # Download from Supabase for processing if needed
-            if doc.supabase_url and not doc.file:
-                pdf_bytes = supabase_storage.download_file(supabase_path)
+            if doc.supabase_path and not doc.file:
+                pdf_bytes = supabase_storage.download_pdf(doc.supabase_path)
                 if pdf_bytes:
                     # Save temporarily for extraction
                     import tempfile

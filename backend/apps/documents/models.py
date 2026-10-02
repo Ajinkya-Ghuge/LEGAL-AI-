@@ -89,13 +89,26 @@ class Document(models.Model):
     
     @property
     def pdf_url(self):
-        """Get PDF URL - prioritize Supabase public URL, fallback to local file"""
-        if self.supabase_url:
-            # Return public Supabase URL directly
-            return self.supabase_url
-        elif self.file:
+        """
+        Get PDF URL - Generate signed URL from Supabase storage_path
+        Based on Nexus project architecture - uses signed URLs for security
+        """
+        if self.supabase_path:
+            # Generate signed URL for Supabase storage (1 hour expiry)
+            from apps.documents.storage import supabase_storage
+            signed_url = supabase_storage.get_signed_url(self.supabase_path, expires_in=3600)
+            if signed_url:
+                return signed_url
+            else:
+                # If signed URL generation fails, log it
+                import logging
+                logging.getLogger(__name__).warning(f"Failed to generate signed URL for {self.supabase_path}")
+        
+        # Fallback to local file (for development/backward compatibility)
+        if self.file:
             try:
                 return self.file.url
             except Exception:
                 return None
+        
         return None
