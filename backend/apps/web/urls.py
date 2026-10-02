@@ -36,6 +36,7 @@ urlpatterns = [
     # ── AJAX endpoints ────────────────────────────────────────────────────
     path("api/clear-chat/",           views.api_clear_chat,       name="api_clear_chat"),
     path("api/chat/",                 views.api_chat,             name="api_chat"),
+    path("api/public-chat/",          views.api_public_chat,      name="api_public_chat"),
     path("api/save-draft/",           views.api_save_draft,       name="api_save_draft"),
     path("api/generate-draft/",       views.api_generate_draft,   name="api_generate_draft"),
     path("api/upload-document/",      views.api_upload_document,  name="api_upload_document"),

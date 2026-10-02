@@ -317,8 +317,10 @@ def normalize_draft(draft: Draft) -> dict:
 # ── VIEWS ─────────────────────────────────────────────────────────────────────
 
 def index(request):
-    """Landing page - redirects to dashboard which requires login"""
-    return redirect("dashboard")
+    """Landing page - show marketing site for non-logged-in users"""
+    if request.user.is_authenticated:
+        return redirect("dashboard")
+    return render(request, "landing.html")
 
 
 @login_required(login_url='/login/')
@@ -2126,6 +2128,90 @@ def api_chat(request):
             "confidence": "error"
         }, status=500)
 
+
+@csrf_exempt
+@require_http_methods(["POST"])
+def api_public_chat(request):
+    """
+    Public chat endpoint - no login required
+    Answers general legal questions about Indian law, MACT claims, etc.
+    
+    Body: { "message": "user question" }
+    Returns: { "reply": "AI answer" }
+    """
+    import google.generativeai as genai
+    
+    try:
+        body = json.loads(request.body)
+    except Exception:
+        return JsonResponse({"error": "Invalid JSON"}, status=400)
+    
+    message = body.get("message", "").strip()
+    
+    if not message:
+        return JsonResponse({"error": "message required"}, status=400)
+    
+    if not settings.GEMINI_API_KEY:
+        return JsonResponse({"error": "AI service not configured"}, status=500)
+    
+    try:
+        genai.configure(api_key=settings.GEMINI_API_KEY)
+        
+        # Try models in order (same as simple_rag.py)
+        models_to_try = [
+            "gemini-2.5-flash-lite",
+            "gemini-2.0-flash-lite",
+            "gemini-2.0-flash",
+            "gemini-2.5-flash",
+            "gemini-1.5-flash",
+        ]
+        
+        system_prompt = """You are LegalAI, an expert legal assistant specializing in Indian law, particularly Motor Accident Claims Tribunal (MACT) cases, compensation calculation, and legal drafting.
+
+Your expertise includes:
+- Motor Vehicles Act and MACT claims
+- Compensation calculation using multiplier method
+- Legal document drafting (petitions, notices, affidavits)
+- Medical record analysis for injury claims
+- Indian legal precedents and case law
+
+Provide clear, accurate, and helpful legal information. Always mention that users should consult a qualified lawyer for specific legal advice."""
+
+        full_prompt = f"{system_prompt}\n\nUser Question: {message}\n\nProvide a helpful, accurate answer:"
+        
+        # Try each model until one works
+        last_error = None
+        for model_name in models_to_try:
+            try:
+                logger.info(f"Trying model: {model_name}")
+                model = genai.GenerativeModel(model_name)
+                response = model.generate_content(full_prompt)
+                reply = response.text.strip()
+                
+                return JsonResponse({
+                    "reply": reply,
+                    "success": True,
+                    "model": model_name
+                })
+            except Exception as e:
+                last_error = str(e)
+                logger.warning(f"Model {model_name} failed: {e}")
+                continue
+        
+        # All models failed
+        return JsonResponse({
+            "reply": "I'm sorry, I'm having trouble connecting to the AI service. Please try again in a moment.",
+            "error": last_error,
+            "success": False
+        }, status=500)
+        
+    except Exception as e:
+        logger.error(f"Public chat error: {e}")
+        return JsonResponse({
+            "reply": "I'm sorry, I encountered an error. Please try again or sign up for full access to our AI features.",
+            "error": str(e),
+            "success": False
+        }, status=500)
 
 
 # ── DIAGNOSTIC VIEWS ──────────────────────────────────────────────────────────
