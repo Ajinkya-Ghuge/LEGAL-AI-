@@ -1,0 +1,112 @@
+═══════════════════════════════════════════════════════════════════════════════
+                CRITICAL: CREATE SUPABASE BUCKET MANUALLY
+═══════════════════════════════════════════════════════════════════════════════
+
+The code has been updated to use Nexus-style storage (user_id/doc_id.pdf).
+However, you MUST create the bucket manually in Supabase Dashboard first.
+
+═══════════════════════════════════════════════════════════════════════════════
+                        STEP 1: CREATE THE BUCKET
+═══════════════════════════════════════════════════════════════════════════════
+
+1. Go to: https://miiineezxbvmhlxavbfh.supabase.co
+2. Click "Storage" in the left sidebar
+3. Click "New bucket" button
+4. Enter bucket name: pdfs
+5. Toggle "Public bucket" to OFF (make it PRIVATE)
+6. Click "Create bucket"
+
+═══════════════════════════════════════════════════════════════════════════════
+                    STEP 2: SET UP STORAGE POLICIES (OPTIONAL)
+═══════════════════════════════════════════════════════════════════════════════
+
+Since we're using the anon key and simple path-based access (user_id/doc_id.pdf),
+you can skip RLS policies for now. The application will use signed URLs for access.
+
+However, if you want to add RLS policies later for extra security:
+
+1. Go to Storage → pdfs bucket → Policies
+2. Add these policies:
+
+-- Allow users to upload their own PDFs
+CREATE POLICY "Users can upload own PDFs"
+ON storage.objects FOR INSERT
+TO authenticated
+WITH CHECK (
+  bucket_id = 'pdfs' AND
+  (storage.foldername(name))[1] = auth.uid()::text
+);
+
+-- Allow users to read their own PDFs
+CREATE POLICY "Users can read own PDFs"
+ON storage.objects FOR SELECT
+TO authenticated
+USING (
+  bucket_id = 'pdfs' AND
+  (storage.foldername(name))[1] = auth.uid()::text
+);
+
+-- Allow users to delete their own PDFs
+CREATE POLICY "Users can delete own PDFs"
+ON storage.objects FOR DELETE
+TO authenticated
+USING (
+  bucket_id = 'pdfs' AND
+  (storage.foldername(name))[1] = auth.uid()::text
+);
+
+═══════════════════════════════════════════════════════════════════════════════
+                        STEP 3: TEST THE SETUP
+═══════════════════════════════════════════════════════════════════════════════
+
+After creating the bucket:
+
+1. Wait for Render to finish deploying (should be done now)
+2. Go to: https://legalx.me/cases/
+3. Create a new case or upload a PDF to existing case
+4. PDF should now upload to Supabase successfully!
+
+═══════════════════════════════════════════════════════════════════════════════
+                            WHAT CHANGED
+═══════════════════════════════════════════════════════════════════════════════
+
+✅ Storage path: user_id/doc_id.pdf (Nexus-style, e.g., "1/45.pdf")
+✅ Bucket name: "pdfs" (not "legal-documents")
+✅ Bucket type: PRIVATE (uses signed URLs for access)
+✅ URL generation: Signed URLs with 1-hour expiry
+✅ Document model: pdf_url property now generates signed URLs automatically
+✅ Upload functions: new_case and api_upload_document use new upload_pdf() method
+✅ Delete function: Uses delete_pdf() method
+
+═══════════════════════════════════════════════════════════════════════════════
+                        TROUBLESHOOTING
+═══════════════════════════════════════════════════════════════════════════════
+
+IF UPLOAD STILL FAILS:
+
+1. Check Render logs for detailed error messages (look for 🔄 📦 📤 ✅ ❌ emojis)
+2. Verify bucket "pdfs" exists in Supabase Dashboard → Storage
+3. Check environment variables are set in Render:
+   - SUPABASE_URL
+   - SUPABASE_KEY
+4. Make sure SUPABASE_KEY is the "anon/public" key (NOT service_role)
+
+═══════════════════════════════════════════════════════════════════════════════
+                        KEY DIFFERENCES FROM BEFORE
+═══════════════════════════════════════════════════════════════════════════════
+
+BEFORE:
+- Bucket: "legal-documents" 
+- Path: "cases/12/docs/ocr-34048459_1.PDF"
+- Type: PUBLIC
+- Access: Direct public URLs
+
+AFTER (Nexus-style):
+- Bucket: "pdfs"
+- Path: "1/45.pdf" (user_id/doc_id.pdf)
+- Type: PRIVATE
+- Access: Signed URLs (1-hour expiry)
+
+This is MORE SECURE and matches your Nexus project architecture!
+
+═══════════════════════════════════════════════════════════════════════════════

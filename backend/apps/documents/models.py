@@ -93,22 +93,31 @@ class Document(models.Model):
         Get PDF URL - Generate signed URL from Supabase storage_path
         Based on Nexus project architecture - uses signed URLs for security
         """
+        # Priority 1: Use Supabase storage_path (NEW method)
         if self.supabase_path:
             # Generate signed URL for Supabase storage (1 hour expiry)
             from apps.documents.storage import supabase_storage
-            signed_url = supabase_storage.get_signed_url(self.supabase_path, expires_in=3600)
-            if signed_url:
-                return signed_url
-            else:
-                # If signed URL generation fails, log it
+            try:
+                signed_url = supabase_storage.get_signed_url(self.supabase_path, expires_in=3600)
+                if signed_url:
+                    return signed_url
+                else:
+                    # If signed URL generation fails, log it
+                    import logging
+                    logging.getLogger(__name__).warning(f"Failed to generate signed URL for {self.supabase_path}")
+            except Exception as e:
                 import logging
-                logging.getLogger(__name__).warning(f"Failed to generate signed URL for {self.supabase_path}")
+                logging.getLogger(__name__).error(f"Error generating signed URL: {e}")
         
-        # Fallback to local file (for development/backward compatibility)
+        # Priority 2: Fallback to local file (for development/old documents)
         if self.file:
             try:
                 return self.file.url
             except Exception:
-                return None
+                pass
+        
+        # Priority 3: Old supabase_url field (deprecated, for backward compatibility)
+        if self.supabase_url:
+            return self.supabase_url
         
         return None
