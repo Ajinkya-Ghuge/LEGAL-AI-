@@ -110,8 +110,7 @@ class SupabaseStorage:
                 file=file_bytes,
                 file_options={
                     "content-type": "application/pdf",
-                    "cache-control": "3600",
-                    "upsert": False  # Don't overwrite existing files
+                    "cache-control": "3600"
                 }
             )
             
